@@ -9,6 +9,9 @@ export interface User {
   image?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Streak tracking
+  streak?: number;
+  lastLoginDate?: Date;
 }
 
 // Vocabulary saved by user

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import KeywordTab from "@/components/KeywordTab";
-import SentenceTab from "@/components/SentenceTab";
+import Header from "@/common/components/Header";
+import Footer from "@/common/components/Footer";
+import KeywordTab from "@/features/home/KeywordTab";
+import SentenceTab from "@/features/home/SentenceTab";
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState<"keyword" | "sentence">("keyword");
@@ -29,7 +29,7 @@ export default function Home() {
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="flex justify-center mb-4">
+                <div className="flex justify-center mb-12">
                     <div className="bg-white/70 backdrop-blur-md p-1.5 rounded-2xl border border-white/50 shadow-lg flex items-center gap-1">
                         <button
                             onClick={() => setActiveTab("keyword")}

@@ -5,15 +5,19 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import AuthButton from "@/components/AuthButton";
-import VocaCard from "@/components/VocaCard";
-import GroupTabs from "@/components/GroupTabs";
-import GroupManagement from "@/components/GroupManagement";
-import Pagination from "@/components/Pagination";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import EditVocaModal from "@/components/EditVocaModal";
+import Header from "@/common/components/Header";
+import Footer from "@/common/components/Footer";
+import AuthButton from "@/common/components/AuthButton";
+import VocaCard from "@/features/vocabulary/VocaCard";
+import GroupTabs from "@/features/vocabulary/GroupTabs";
+import GroupManagement from "@/features/vocabulary/GroupManagement";
+import Pagination from "@/features/vocabulary/Pagination";
+import ConfirmDialog from "@/features/vocabulary/ConfirmDialog";
+import EditVocaModal from "@/features/vocabulary/EditVocaModal";
+import ProfileStats from "@/features/profile/ProfileStats";
+import StreakStats from "@/features/profile/StreakStats";
+import ActivityChart from "@/features/profile/ActivityChart";
+import { generateMockUserStats, generateWeeklyActivity } from "@/common/utils/mockData";
 
 interface Vocabulary {
     _id: string;
@@ -66,6 +70,10 @@ export default function ProfilePage() {
     const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
     const [deletingVocab, setDeletingVocab] = useState<Vocabulary | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Mock data for statistics
+    const userStats = generateMockUserStats();
+    const weeklyActivity = generateWeeklyActivity();
 
     useEffect(() => {
         setActiveTab(view);
@@ -359,105 +367,121 @@ export default function ProfilePage() {
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                         >
-                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden max-w-4xl mx-auto">
-                                <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                                    <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
-                                    <p className="text-sm text-gray-600 mt-1">Manage your account details</p>
-                                </div>
-
-                                <div className="p-8">
-                                    {/* Avatar Section */}
-                                    <div className="flex items-center gap-6 mb-8">
-                                        <div className="relative">
-                                            {(isEditing ? editImage : profile?.image) ? (
-                                                <Image
-                                                    src={isEditing ? editImage : profile?.image || ""}
-                                                    alt={profile?.name || "User"}
-                                                    width={100}
-                                                    height={100}
-                                                    className="rounded-full ring-4 ring-gray-100"
-                                                />
-                                            ) : (
-                                                <div className="w-[100px] h-[100px] rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-gray-100">
-                                                    {profile?.name?.charAt(0).toUpperCase() || "U"}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                {profile?.name || "User"}
-                                            </h3>
-                                            <p className="text-sm text-gray-500">{profile?.email}</p>
-                                        </div>
+                            <div className="space-y-6 max-w-6xl mx-auto">
+                                {/* Profile Header Card */}
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                    <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                                        <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
+                                        <p className="text-sm text-gray-600 mt-1">Manage your account details</p>
                                     </div>
 
-                                    {/* Edit Form */}
-                                    {isEditing ? (
-                                        <div className="space-y-6">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Name
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={editName}
-                                                    onChange={(e) => setEditName(e.target.value)}
-                                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
-                                                    placeholder="Enter your name"
-                                                />
+                                    <div className="p-8">
+                                        {/* Avatar Section */}
+                                        <div className="flex items-center gap-6 mb-8">
+                                            <div className="relative">
+                                                {(isEditing ? editImage : profile?.image) ? (
+                                                    <Image
+                                                        src={isEditing ? editImage : profile?.image || ""}
+                                                        alt={profile?.name || "User"}
+                                                        width={100}
+                                                        height={100}
+                                                        className="rounded-full ring-4 ring-gray-100"
+                                                    />
+                                                ) : (
+                                                    <div className="w-[100px] h-[100px] rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-gray-100">
+                                                        {profile?.name?.charAt(0).toUpperCase() || "U"}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Profile Image URL
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={editImage}
-                                                    onChange={(e) => setEditImage(e.target.value)}
-                                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
-                                                    placeholder="Enter image URL"
-                                                />
-                                            </div>
-
-                                            {saveMessage && (
-                                                <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-                                                    {saveMessage}
-                                                </p>
-                                            )}
-
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={handleSaveProfile}
-                                                    disabled={isSaving}
-                                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                                >
-                                                    {isSaving ? "Saving..." : "Save Changes"}
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setIsEditing(false);
-                                                        setEditName(profile?.name || "");
-                                                        setEditImage(profile?.image || "");
-                                                        setSaveMessage("");
-                                                    }}
-                                                    className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
+                                                <h3 className="text-lg font-semibold text-gray-900">
+                                                    {profile?.name || "User"}
+                                                </h3>
+                                                <p className="text-sm text-gray-500">{profile?.email}</p>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setIsEditing(true)}
-                                            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                            Edit Profile
-                                        </button>
-                                    )}
+
+                                        {/* Edit Form */}
+                                        {isEditing ? (
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Name
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={editName}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                                        placeholder="Enter your name"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Profile Image URL
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={editImage}
+                                                        onChange={(e) => setEditImage(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                                        placeholder="Enter image URL"
+                                                    />
+                                                </div>
+
+                                                {saveMessage && (
+                                                    <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+                                                        {saveMessage}
+                                                    </p>
+                                                )}
+
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={handleSaveProfile}
+                                                        disabled={isSaving}
+                                                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {isSaving ? "Saving..." : "Save Changes"}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditing(false);
+                                                            setEditName(profile?.name || "");
+                                                            setEditImage(profile?.image || "");
+                                                            setSaveMessage("");
+                                                        }}
+                                                        className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setIsEditing(true)}
+                                                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                                Edit Profile
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
+                                {/* Statistics Section - Row 1: Profile Stats (left) + Streak Stats (right) */}
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <ProfileStats
+                                        joinDate={userStats.joinDate}
+                                        activeDays={userStats.activeDays}
+                                        activeTime={userStats.activeTime}
+                                    />
+                                    <StreakStats streak={userStats.currentStreak} />
+                                </div>
+
+                                {/* Activity Chart - Row 2: Full Width */}
+                                <ActivityChart data={weeklyActivity} />
                             </div>
                         </motion.div>
                     ) : (

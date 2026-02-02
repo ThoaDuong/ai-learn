@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -9,7 +9,27 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function AuthButton() {
     const { data: session, status } = useSession();
     const [isOpen, setIsOpen] = useState(false);
+    const [streak, setStreak] = useState<number>(0);
     const router = useRouter();
+
+    // Fetch streak when user is authenticated
+    useEffect(() => {
+        if (session?.user) {
+            fetchStreak();
+        }
+    }, [session]);
+
+    const fetchStreak = async () => {
+        try {
+            const response = await fetch("/api/streak");
+            if (response.ok) {
+                const data = await response.json();
+                setStreak(data.streak || 0);
+            }
+        } catch (error) {
+            console.error("Failed to fetch streak:", error);
+        }
+    };
 
     if (status === "loading") {
         return <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />;
@@ -22,8 +42,35 @@ export default function AuthButton() {
                 onMouseEnter={() => setIsOpen(true)}
                 onMouseLeave={() => setIsOpen(false)}
             >
-                {/* Avatar */}
-                <button className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100/50 transition-colors cursor-pointer">
+                {/* Streak + Avatar */}
+                <button className="flex items-center gap-3 p-1 rounded-full hover:bg-gray-100/50 transition-colors cursor-pointer">
+                    {/* Streak Indicator */}
+                    {streak > 0 && (
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full"
+                        >
+                            <motion.span
+                                animate={{
+                                    scale: [1, 1.2, 1],
+                                }}
+                                transition={{
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    repeatType: "loop",
+                                }}
+                                className="text-lg"
+                            >
+                                🔥
+                            </motion.span>
+                            <span className="text-sm font-bold text-orange-600">
+                                {streak}
+                            </span>
+                        </motion.div>
+                    )}
+
+                    {/* Avatar */}
                     {session.user.image ? (
                         <Image
                             src={session.user.image}

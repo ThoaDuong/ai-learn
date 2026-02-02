@@ -92,6 +92,20 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                     style={{ backfaceVisibility: "hidden" }}
                 >
                     <div className="h-full p-5 rounded-2xl border border-gray-200 bg-white hover:border-blue-200 hover:shadow-lg transition-all">
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                            {vocabulary.level && (
+                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getLevelColor(vocabulary.level)}`}>
+                                    {vocabulary.level.toUpperCase()}
+                                </span>
+                            )}
+                            {vocabulary.partOfSpeech && (
+                                <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                                    {vocabulary.partOfSpeech}
+                                </span>
+                            )}
+                        </div>
+
                         {/* Header with word and actions */}
                         <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
@@ -120,25 +134,11 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                             </button>
                         </div>
 
-                        {/* Badges */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                            {vocabulary.level && (
-                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getLevelColor(vocabulary.level)}`}>
-                                    {vocabulary.level.toUpperCase()}
-                                </span>
-                            )}
-                            {vocabulary.partOfSpeech && (
-                                <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
-                                    {vocabulary.partOfSpeech}
-                                </span>
-                            )}
-                        </div>
-
                         {/* Action Buttons */}
                         <div className="absolute bottom-4 right-4 flex items-center gap-2">
                             <button
                                 onClick={handleEdit}
-                                className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                                className="p-2 rounded-lg hover:bg-orange-50 text-gray-400 hover:text-orange-600 transition-colors"
                                 title="Edit"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -171,7 +171,7 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                     className="absolute inset-0 backface-hidden"
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                 >
-                    <div className="h-full p-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg transition-all">
+                    <div className="h-full overflow-y-auto p-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg transition-all">
                         {/* Meaning */}
                         <div className="mb-4">
                             <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -198,14 +198,6 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                                 )}
                             </div>
                         )}
-
-                        {/* Flip Back Hint */}
-                        <div className="absolute bottom-4 left-4 text-xs text-gray-400 flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Click to flip back
-                        </div>
                     </div>
                 </div>
             </motion.div>
