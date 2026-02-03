@@ -32,7 +32,35 @@ export async function GET() {
                 name: user.name,
                 email: user.email,
                 image: user.image,
+                googleImage: user.googleImage,
             },
+            stats: {
+                joinDate: user.createdAt,
+                activeDays: user.activeDays || 1,
+                activeTime: user.activeMinutes ? Math.round(user.activeMinutes / 60) : 0,
+                currentStreak: user.streak || 0,
+            },
+            weeklyActivity: (() => {
+                const activity = [];
+                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const today = new Date();
+
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+
+                    const dayLog = user.activityLog?.find((log: any) =>
+                        new Date(log.date).toISOString().split('T')[0] === dateStr
+                    );
+
+                    activity.push({
+                        day: days[d.getDay()],
+                        hours: dayLog ? Number((dayLog.minutes / 60).toFixed(1)) : 0,
+                    });
+                }
+                return activity;
+            })(),
         });
     } catch (error) {
         console.error("Get profile error:", error);

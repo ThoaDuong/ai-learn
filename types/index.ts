@@ -12,6 +12,10 @@ export interface User {
   // Streak tracking
   streak?: number;
   lastLoginDate?: Date;
+  googleImage?: string; // Original Google profile image
+  activeDays?: number;
+  activeMinutes?: number;
+  activityLog?: { date: Date; minutes: number }[];
 }
 
 // Vocabulary saved by user

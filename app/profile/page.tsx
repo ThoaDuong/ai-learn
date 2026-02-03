@@ -10,134 +10,156 @@ import Footer from "@/common/components/Footer";
 import AuthButton from "@/common/components/AuthButton";
 import VocaCard from "@/features/vocabulary/VocaCard";
 import GroupTabs from "@/features/vocabulary/GroupTabs";
-import GroupManagement from "@/features/vocabulary/GroupManagement";
 import Pagination from "@/features/vocabulary/Pagination";
-import ConfirmDialog from "@/features/vocabulary/ConfirmDialog";
+import GroupManagement from "@/features/vocabulary/GroupManagement";
 import EditVocaModal from "@/features/vocabulary/EditVocaModal";
+import ConfirmDialog from "@/features/vocabulary/ConfirmDialog";
 import ProfileStats from "@/features/profile/ProfileStats";
 import StreakStats from "@/features/profile/StreakStats";
 import ActivityChart from "@/features/profile/ActivityChart";
-import { generateMockUserStats, generateWeeklyActivity } from "@/common/utils/mockData";
+import AvatarUploader from "@/features/profile/AvatarUploader";
 
 interface Vocabulary {
     _id: string;
     word: string;
     meaning: string;
+    pronunciation?: string;
     partOfSpeech?: string;
-    level?: string;
     example?: string;
-    exampleTranslation?: string;
-    phonetic?: string;
+    translation?: string;
     groupId?: string;
-    createdAt?: string;
+    image?: string;
+    ipa?: string;
+    // Added for compatibility with EditVocaModal
+    phonetic?: string;
+    level?: string;
+    exampleTranslation?: string;
 }
 
-interface VocabularyGroup {
+interface Group {
     _id: string;
     name: string;
-    isDefault?: boolean;
+    description?: string;
 }
 
 interface Profile {
     name: string;
     email: string;
     image: string;
+    googleImage?: string;
+}
+
+interface Stats {
+    joinDate: string;
+    activeDays: number;
+    activeTime: number;
+    currentStreak: number;
 }
 
 const ITEMS_PER_PAGE = 20;
 
 function ProfileContent() {
-    const { data: session, status } = useSession();
+    const { data: session, status, update } = useSession();
     const searchParams = useSearchParams();
     const router = useRouter();
-    const view = searchParams.get("view") || "profile";
 
-    const [activeTab, setActiveTab] = useState(view);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [stats, setStats] = useState<Stats | null>(null);
+    const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
+
+    // Vocabulary State
     const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
-    const [groups, setGroups] = useState<VocabularyGroup[]>([]);
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [activeTab, setActiveTab] = useState<"profile" | "vocabulary">("profile");
+
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState("");
     const [editImage, setEditImage] = useState("");
-    const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Vocabulary management states
+    // Filter/Pagination State
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Modals State
     const [showGroupManagement, setShowGroupManagement] = useState(false);
     const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
     const [deletingVocab, setDeletingVocab] = useState<Vocabulary | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Mock data for statistics
-    const userStats = generateMockUserStats();
-    const weeklyActivity = generateWeeklyActivity();
-
-    useEffect(() => {
-        setActiveTab(view);
-    }, [view]);
-
-    useEffect(() => {
-        if (status === "authenticated") {
-            fetchProfile();
-            fetchVocabularies();
-            fetchGroups();
-        }
-    }, [status]);
-
-    // Reset page when group changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [selectedGroupId]);
-
+    // Initial Data Fetch
     const fetchProfile = async () => {
         try {
-            const response = await fetch("/api/profile");
-            if (response.ok) {
-                const data = await response.json();
-                setProfile(data.profile);
-                setEditName(data.profile.name || "");
-                setEditImage(data.profile.image || "");
-            }
-        } catch (error) {
-            console.error("Failed to fetch profile:", error);
-        }
-    };
+            const res = await fetch("/api/profile");
+            const data = await res.json();
 
-    const fetchVocabularies = async () => {
-        try {
-            const response = await fetch("/api/vocabulary");
-            if (response.ok) {
-                const data = await response.json();
-                setVocabularies(data.vocabularies || []);
+            if (data.error) throw new Error(data.error);
+
+            setProfile(data.profile);
+            setStats(data.stats);
+            setEditName(data.profile.name || "");
+            setEditImage(data.profile.image || "");
+
+            if (data.weeklyActivity) {
+                setWeeklyActivity(data.weeklyActivity);
             }
         } catch (error) {
-            console.error("Failed to fetch vocabularies:", error);
-        } finally {
-            setIsLoading(false);
+            console.error("Error fetching profile:", error);
         }
     };
 
     const fetchGroups = async () => {
         try {
-            const response = await fetch("/api/vocabulary/groups");
-            if (response.ok) {
-                const data = await response.json();
-                setGroups(data.groups || []);
+            const res = await fetch("/api/groups");
+            const data = await res.json();
+            if (data.groups) {
+                setGroups(data.groups);
             }
         } catch (error) {
-            console.error("Failed to fetch groups:", error);
+            console.error("Error fetching groups:", error);
         }
     };
 
+    const fetchVocabulary = async () => {
+        try {
+            const res = await fetch("/api/vocabulary/list");
+            const data = await res.json();
+            if (data.vocabularies) {
+                setVocabularies(data.vocabularies);
+            }
+        } catch (error) {
+            console.error("Error fetching vocabulary:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (status === "authenticated") {
+            // Parallel fetching
+            Promise.all([fetchProfile(), fetchGroups(), fetchVocabulary()]);
+        } else if (status === "unauthenticated") {
+            // Do nothing, redirect handled by render logic or middleware
+        }
+    }, [status]);
+
+    // Handle initial tab from URL ?tab=vocabulary
+    useEffect(() => {
+        const tab = searchParams.get("tab");
+        if (tab === "vocabulary") {
+            setActiveTab("vocabulary");
+        }
+    }, [searchParams]);
+
+    // Save Profile
     const handleSaveProfile = async () => {
         setIsSaving(true);
         setSaveMessage("");
 
         try {
-            const response = await fetch("/api/profile", {
+            const res = await fetch("/api/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -146,130 +168,126 @@ function ProfileContent() {
                 }),
             });
 
-            if (response.ok) {
-                setSaveMessage("Profile updated successfully!");
-                setProfile({
-                    ...profile!,
-                    name: editName,
-                    image: editImage,
-                });
-                setIsEditing(false);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                const data = await response.json();
-                setSaveMessage(data.error || "Failed to update profile");
+            const result = await res.json();
+
+            if (!res.ok) {
+                throw new Error(result.error);
             }
+
+            setSaveMessage("Profile updated successfully!");
+
+            // Sync session image if changed
+            if (editImage !== profile?.image) {
+                await update({ image: editImage });
+            }
+
+            // Reload to ensure full sync
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (error) {
-            console.error("Failed to save profile:", error);
-            setSaveMessage("Failed to update profile");
+            setSaveMessage(error instanceof Error ? error.message : "Failed to update profile");
         } finally {
             setIsSaving(false);
         }
     };
 
-    // Group management handlers
-    const handleAddGroup = async (name: string) => {
-        const response = await fetch("/api/vocabulary/groups", {
+    // --- Vocabulary Management Handlers (Preserved) ---
+    const handleAddGroup = async (name: string, description?: string) => {
+        const res = await fetch("/api/groups", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify({ name, description }),
         });
-
-        if (!response.ok) {
-            const data = await response.json();
+        const data = await res.json();
+        if (data.success) {
+            fetchGroups();
+        } else {
             throw new Error(data.error || "Failed to add group");
         }
-
-        await fetchGroups();
     };
 
-    const handleUpdateGroup = async (id: string, name: string) => {
-        const response = await fetch(`/api/vocabulary/groups/${id}`, {
+    const handleUpdateGroup = async (id: string, name: string, description?: string) => {
+        const res = await fetch("/api/groups", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify({ id, name, description }),
         });
-
-        if (!response.ok) {
-            const data = await response.json();
+        const data = await res.json();
+        if (data.success) {
+            fetchGroups();
+        } else {
             throw new Error(data.error || "Failed to update group");
         }
-
-        await fetchGroups();
     };
 
     const handleDeleteGroup = async (id: string) => {
-        const response = await fetch(`/api/vocabulary/groups/${id}`, {
-            method: "DELETE",
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "Failed to delete group");
-        }
-
-        await fetchGroups();
-        if (selectedGroupId === id) {
-            setSelectedGroupId(null);
+        if (!confirm("Are you sure? Vocabulary in this group will be moved to 'Ungrouped'.")) return;
+        try {
+            const res = await fetch(`/api/groups?id=${id}`, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+            if (data.success) {
+                if (selectedGroupId === id) setSelectedGroupId(null);
+                fetchGroups();
+                fetchVocabulary(); // Refresh vocab to reflect ungrouping
+            }
+        } catch (error) {
+            console.error("Error deleting group:", error);
         }
     };
 
-    // Vocabulary CRUD handlers
     const handleEditVocab = (vocab: Vocabulary) => {
         setEditingVocab(vocab);
+    };
+
+    const handleSaveVocab = async (updatedVocab: Partial<Vocabulary>) => {
+        if (!editingVocab) return;
+        try {
+            const res = await fetch(`/api/vocabulary/${editingVocab._id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedVocab),
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchVocabulary();
+                setEditingVocab(null);
+            }
+        } catch (error) {
+            console.error("Error saving vocab:", error);
+        }
     };
 
     const handleDeleteVocab = (vocab: Vocabulary) => {
         setDeletingVocab(vocab);
     };
 
-    const handleSaveVocab = async (updatedVocab: Partial<Vocabulary>) => {
-        if (!editingVocab) return;
-
-        const response = await fetch(`/api/vocabulary/${editingVocab._id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updatedVocab),
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "Failed to update vocabulary");
-        }
-
-        await fetchVocabularies();
-        setEditingVocab(null);
-    };
-
     const handleConfirmDelete = async () => {
         if (!deletingVocab) return;
-
         setIsDeleting(true);
         try {
-            const response = await fetch(`/api/vocabulary/${deletingVocab._id}`, {
+            const res = await fetch(`/api/vocabulary/save?id=${deletingVocab._id}`, {
                 method: "DELETE",
             });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || "Failed to delete vocabulary");
+            const data = await res.json();
+            if (data.success) {
+                setVocabularies(prev => prev.filter(v => v._id !== deletingVocab._id));
+                setDeletingVocab(null);
             }
-
-            await fetchVocabularies();
-            setDeletingVocab(null);
         } catch (error) {
-            console.error("Failed to delete vocabulary:", error);
+            console.error("Error deleting vocab:", error);
         } finally {
             setIsDeleting(false);
         }
     };
 
-    // Filter and paginate vocabularies
-    const filteredVocabularies = selectedGroupId
-        ? vocabularies.filter((v) => v.groupId === selectedGroupId)
-        : vocabularies;
+    // Memoized Filtering
+    const filteredVocabularies = vocabularies.filter((vocab) => {
+        if (!selectedGroupId) return true;
+        return vocab.groupId === selectedGroupId;
+    });
 
     const totalPages = Math.ceil(filteredVocabularies.length / ITEMS_PER_PAGE);
     const paginatedVocabularies = filteredVocabularies.slice(
@@ -277,6 +295,7 @@ function ProfileContent() {
         currentPage * ITEMS_PER_PAGE
     );
 
+    // Loading State
     if (status === "loading") {
         return (
             <div className="min-h-screen flex flex-col">
@@ -295,9 +314,19 @@ function ProfileContent() {
             <div className="min-h-screen flex flex-col">
                 <div className="page-background"></div>
                 <Header />
-                <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                    <h1 className="text-2xl font-bold text-gray-900">Please sign in to view your profile</h1>
-                    <AuthButton />
+                <div className="flex-1 flex flex-col items-center justify-center p-4">
+                    <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-md w-full border border-gray-100">
+                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in Required</h2>
+                        <p className="text-gray-600 mb-8">Please sign in to view your profile and vocabulary.</p>
+                        <div className="flex justify-center">
+                            <AuthButton />
+                        </div>
+                    </div>
                 </div>
                 <Footer />
             </div>
@@ -305,59 +334,41 @@ function ProfileContent() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col">
-            <div className="page-background"></div>
+        <div className="min-h-screen flex flex-col relative bg-gray-50/50">
+            <div className="page-background fixed inset-0 z-0"></div>
             <Header />
 
-            {/* Main Content */}
-            <main className="flex-1 max-w-6xl mx-auto px-4 py-10 w-full">
-                {/* Tab Navigation */}
-                <div className="flex justify-center mb-10">
-                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-1">
+            <main className="flex-1 container mx-auto px-4 py-8 relative z-10 w-full max-w-7xl">
+                {/* Tabs */}
+                <div className="flex justify-center mb-8">
+                    <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-white/50 inline-flex">
                         <button
                             onClick={() => {
                                 setActiveTab("profile");
-                                router.push("/profile?view=profile");
+                                router.push("/profile");
                             }}
-                            className={`relative px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "profile"
-                                ? "text-blue-600 bg-blue-50"
-                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "profile"
+                                ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 }`}
                         >
-                            {activeTab === "profile" && (
-                                <motion.div
-                                    layoutId="profileTab"
-                                    className="absolute inset-0 bg-blue-50 rounded-xl"
-                                    initial={false}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            )}
-                            <span className="relative z-10">Profile</span>
+                            Profile & Stats
                         </button>
                         <button
                             onClick={() => {
                                 setActiveTab("vocabulary");
-                                router.push("/profile?view=vocabulary");
+                                router.push("/profile?tab=vocabulary");
                             }}
-                            className={`relative px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "vocabulary"
-                                ? "text-blue-600 bg-blue-50"
-                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "vocabulary"
+                                ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 }`}
                         >
-                            {activeTab === "vocabulary" && (
-                                <motion.div
-                                    layoutId="profileTab"
-                                    className="absolute inset-0 bg-blue-50 rounded-xl"
-                                    initial={false}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            )}
-                            <span className="relative z-10">My Vocabulary</span>
+                            My Vocabulary
                         </button>
                     </div>
                 </div>
 
-                {/* Tab Content */}
                 <AnimatePresence mode="wait">
                     {activeTab === "profile" ? (
                         <motion.div
@@ -367,117 +378,121 @@ function ProfileContent() {
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                         >
-                            <div className="space-y-6 max-w-6xl mx-auto">
-                                {/* Profile Header Card */}
-                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                                    <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                                        <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
-                                        <p className="text-sm text-gray-600 mt-1">Manage your account details</p>
-                                    </div>
-
-                                    <div className="p-8">
-                                        {/* Avatar Section */}
-                                        <div className="flex items-center gap-6 mb-8">
-                                            <div className="relative">
-                                                {(isEditing ? editImage : profile?.image) ? (
-                                                    <Image
-                                                        src={isEditing ? editImage : profile?.image || ""}
-                                                        alt={profile?.name || "User"}
-                                                        width={100}
-                                                        height={100}
-                                                        className="rounded-full ring-4 ring-gray-100"
-                                                    />
-                                                ) : (
-                                                    <div className="w-[100px] h-[100px] rounded-full bg-blue-600 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-gray-100">
-                                                        {profile?.name?.charAt(0).toUpperCase() || "U"}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    {profile?.name || "User"}
-                                                </h3>
-                                                <p className="text-sm text-gray-500">{profile?.email}</p>
-                                            </div>
+                            <div className="space-y-6 max-w-7xl mx-auto">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {/* Left Column: Profile Header/Edit */}
+                                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full">
+                                        <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                                            <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
+                                            <p className="text-sm text-gray-600 mt-1">Manage your account details</p>
                                         </div>
 
-                                        {/* Edit Form */}
-                                        {isEditing ? (
-                                            <div className="space-y-6">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Name
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={editName}
-                                                        onChange={(e) => setEditName(e.target.value)}
-                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
-                                                        placeholder="Enter your name"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Profile Image URL
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={editImage}
-                                                        onChange={(e) => setEditImage(e.target.value)}
-                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
-                                                        placeholder="Enter image URL"
-                                                    />
-                                                </div>
-
-                                                {saveMessage && (
-                                                    <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-                                                        {saveMessage}
-                                                    </p>
+                                        <div className="p-8 flex flex-col items-center justify-center">
+                                            {/* Avatar Section */}
+                                            <div className="flex flex-col items-center gap-6 mb-8 w-full">
+                                                {isEditing ? (
+                                                    <div className="w-full">
+                                                        <AvatarUploader
+                                                            currentImage={editImage}
+                                                            googleImage={profile?.googleImage}
+                                                            onSave={async (base64) => setEditImage(base64)}
+                                                            onRevert={async () => setEditImage(profile?.googleImage || "")}
+                                                            isSaving={isSaving}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="relative">
+                                                            {profile?.image ? (
+                                                                <Image
+                                                                    src={profile.image}
+                                                                    alt={profile.name || "User"}
+                                                                    width={120}
+                                                                    height={120}
+                                                                    className="rounded-full ring-4 ring-gray-100 object-cover w-[120px] h-[120px]"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-[120px] h-[120px] rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold ring-4 ring-gray-100">
+                                                                    {profile?.name?.charAt(0).toUpperCase() || "U"}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <h3 className="text-2xl font-bold text-gray-900">
+                                                                {profile?.name || "User"}
+                                                            </h3>
+                                                            <p className="text-gray-500 font-medium">{profile?.email}</p>
+                                                        </div>
+                                                    </>
                                                 )}
-
-                                                <div className="flex gap-3">
-                                                    <button
-                                                        onClick={handleSaveProfile}
-                                                        disabled={isSaving}
-                                                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                                    >
-                                                        {isSaving ? "Saving..." : "Save Changes"}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsEditing(false);
-                                                            setEditName(profile?.name || "");
-                                                            setEditImage(profile?.image || "");
-                                                            setSaveMessage("");
-                                                        }}
-                                                        className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
                                             </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setIsEditing(true)}
-                                                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                </svg>
-                                                Edit Profile
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {/* Statistics Section - Row 1: Profile Stats (left) + Streak Stats (right) */}
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <ProfileStats
-                                        joinDate={userStats.joinDate}
-                                        activeDays={userStats.activeDays}
-                                        activeTime={userStats.activeTime}
-                                    />
-                                    <StreakStats streak={userStats.currentStreak} />
+                                            {/* Edit Form */}
+                                            {isEditing ? (
+                                                <div className="space-y-6 w-full max-w-md">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+                                                            Name
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={editName}
+                                                            onChange={(e) => setEditName(e.target.value)}
+                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none text-center"
+                                                            placeholder="Enter your name"
+                                                        />
+                                                    </div>
+
+                                                    {saveMessage && (
+                                                        <p className={`text-sm text-center ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+                                                            {saveMessage}
+                                                        </p>
+                                                    )}
+
+                                                    <div className="flex gap-3 justify-center">
+                                                        <button
+                                                            onClick={handleSaveProfile}
+                                                            disabled={isSaving}
+                                                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {isSaving ? "Saving..." : "Save Changes"}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsEditing(false);
+                                                                setEditName(profile?.name || "");
+                                                                setEditImage(profile?.image || "");
+                                                                setSaveMessage("");
+                                                            }}
+                                                            className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setIsEditing(true)}
+                                                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                    </svg>
+                                                    Edit Profile
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column: Streak & Stats */}
+                                    <div className="flex flex-col gap-6">
+                                        <StreakStats streak={stats?.currentStreak || 0} />
+                                        <ProfileStats
+                                            joinDate={stats?.joinDate ? new Date(stats.joinDate).toLocaleDateString() : "N/A"}
+                                            activeDays={stats?.activeDays || 0}
+                                            activeTime={stats?.activeTime || 0}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Activity Chart - Row 2: Full Width */}

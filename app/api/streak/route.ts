@@ -36,15 +36,19 @@ export async function GET() {
         const newStreak = calculateStreak(lastLoginDate, currentStreak);
         const now = new Date();
 
-        // Only update if streak changed or it's a new day
         if (newStreak !== currentStreak || !lastLoginDate ||
             lastLoginDate.toDateString() !== now.toDateString()) {
+
+            // Increment active days if it's a new day
+            const newActiveDays = (user.activeDays || 0) + 1;
+
             await usersCollection.updateOne(
                 { _id: user._id },
                 {
                     $set: {
                         streak: newStreak,
                         lastLoginDate: now,
+                        activeDays: newActiveDays,
                         updatedAt: now,
                     },
                 }

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getDatabase } from "@/lib/mongodb";
 
 // GET: Fetch all vocabulary groups for the user
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -15,9 +15,13 @@ export async function GET() {
             );
         }
 
+        const { searchParams } = new URL(request.url);
+        const minWords = parseInt(searchParams.get("minWords") || "0");
+
         const db = await getDatabase();
         const usersCollection = db.collection("users");
         const groupsCollection = db.collection("vocabularyGroups");
+        const vocabularyCollection = db.collection("vocabularies");
 
         const googleId = (session.user as { googleId?: string }).googleId;
         const user = await usersCollection.findOne({ googleId });
@@ -46,7 +50,26 @@ export async function GET() {
             .sort({ isDefault: -1, createdAt: 1 })
             .toArray();
 
-        return NextResponse.json({ groups });
+        // Get word count for each group
+        const groupsWithCount = await Promise.all(
+            groups.map(async (group) => {
+                const wordCount = await vocabularyCollection.countDocuments({
+                    userId: user._id,
+                    groupId: group._id,
+                });
+                return {
+                    ...group,
+                    wordCount,
+                };
+            })
+        );
+
+        // Filter by minWords if specified
+        const filteredGroups = minWords > 0
+            ? groupsWithCount.filter(g => g.wordCount >= minWords)
+            : groupsWithCount;
+
+        return NextResponse.json({ groups: filteredGroups });
     } catch (error) {
         console.error("Get groups error:", error);
         return NextResponse.json(

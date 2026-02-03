@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Brain } from "lucide-react";
 import AuthButton from "./AuthButton";
 
 export default function Header() {
@@ -12,7 +13,17 @@ export default function Header() {
                     <Image src="/images/logo-fit.png" alt="Logo" width={40} height={40} />
                     <Image src="/images/tlearn-fit.png" alt="Logo" width={80} height={40} />
                 </Link>
-                <AuthButton />
+
+                <nav className="flex items-center gap-6">
+                    <Link
+                        href="/learn"
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:scale-105"
+                    >
+                        <Brain size={18} />
+                        <span>Learn Voca</span>
+                    </Link>
+                    <AuthButton />
+                </nav>
             </div>
         </header>
     );
