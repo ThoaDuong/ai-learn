@@ -17,7 +17,7 @@ interface GroupSelectorProps {
     minWords?: number;
 }
 
-export default function GroupSelector({ onSelectGroup, minWords = 6 }: GroupSelectorProps) {
+export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSelectorProps) {
     const { data: session, status } = useSession();
     const [groups, setGroups] = useState<VocabularyGroup[]>([]);
     const [loading, setLoading] = useState(true);

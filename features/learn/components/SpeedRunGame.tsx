@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer } from "lucide-react";
 import Link from "next/link";
 import { Vocabulary } from "@/types";
+import { useGameSounds } from "../hooks/useGameSounds";
+import Confetti from "./Confetti";
 
 interface SpeedRunGameProps {
     vocabularies: Vocabulary[];
@@ -17,7 +19,8 @@ interface QuizQuestion {
     correctIndex: number;
 }
 
-const TIMER_DURATION = 3000; // 3 seconds
+const TIMER_DURATION = 5000; // 5 seconds
+const WIN_THRESHOLD = 20; // Score threshold for win celebration
 
 export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,19 +30,25 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     const [isGameOver, setIsGameOver] = useState(false);
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
     const [isAnswering, setIsAnswering] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [hasPlayedEndSound, setHasPlayedEndSound] = useState(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const startTimeRef = useRef<number>(Date.now());
 
-    // Generate quiz questions with shuffled options
+    const { playCorrect, playGameOverSad, playGameOverHappy } = useGameSounds();
+
+    // Generate quiz questions with shuffled Vietnamese meaning options
     const questions: QuizQuestion[] = useMemo(() => {
         return vocabularies.map((vocab) => {
+            // Get 3 random wrong Vietnamese meanings
             const otherVocabs = vocabularies.filter(v => v.word !== vocab.word);
             const shuffledOthers = otherVocabs.sort(() => Math.random() - 0.5).slice(0, 3);
-            const wrongAnswers = shuffledOthers.map(v => v.word);
+            const wrongAnswers = shuffledOthers.map(v => v.meaning);
 
-            const allOptions = [vocab.word, ...wrongAnswers];
+            // Combine and shuffle all options (Vietnamese meanings)
+            const allOptions = [vocab.meaning, ...wrongAnswers];
             const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
-            const correctIndex = shuffledOptions.indexOf(vocab.word);
+            const correctIndex = shuffledOptions.indexOf(vocab.meaning);
 
             return {
                 vocabulary: vocab,
@@ -51,32 +60,66 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
 
     const currentQuestion = questions[currentIndex];
 
-    // Timer logic
+    // Speak word function
+    const speakWord = useCallback((word: string) => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); // Stop any current speech
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+    }, []);
+
+    // Auto-read word when question changes
+    useEffect(() => {
+        if (isGameOver || !currentQuestion) return;
+        speakWord(currentQuestion.vocabulary.word);
+    }, [currentIndex, isGameOver, currentQuestion, speakWord]);
+
+    // Timer logic - starts after word is spoken
     useEffect(() => {
         if (isGameOver || isAnswering) return;
 
-        startTimeRef.current = Date.now();
-        setTimeLeft(TIMER_DURATION);
+        // Small delay to let speech start first
+        const startDelay = setTimeout(() => {
+            startTimeRef.current = Date.now();
+            setTimeLeft(TIMER_DURATION);
 
-        const updateTimer = () => {
-            const elapsed = Date.now() - startTimeRef.current;
-            const remaining = Math.max(0, TIMER_DURATION - elapsed);
-            setTimeLeft(remaining);
+            const updateTimer = () => {
+                const elapsed = Date.now() - startTimeRef.current;
+                const remaining = Math.max(0, TIMER_DURATION - elapsed);
+                setTimeLeft(remaining);
 
-            if (remaining <= 0) {
-                // Time's up - game over
-                setIsGameOver(true);
-            }
-        };
+                if (remaining <= 0) {
+                    // Time's up - game over
+                    setIsGameOver(true);
+                }
+            };
 
-        timerRef.current = setInterval(updateTimer, 50);
+            timerRef.current = setInterval(updateTimer, 50);
+        }, 300); // 300ms delay for speech to start
 
         return () => {
+            clearTimeout(startDelay);
             if (timerRef.current) {
                 clearInterval(timerRef.current);
             }
         };
     }, [currentIndex, isGameOver, isAnswering]);
+
+    // Play end sound when game over
+    useEffect(() => {
+        if (isGameOver && !hasPlayedEndSound) {
+            setHasPlayedEndSound(true);
+            if (score >= WIN_THRESHOLD) {
+                setShowConfetti(true);
+                playGameOverHappy();
+            } else {
+                playGameOverSad();
+            }
+        }
+    }, [isGameOver, hasPlayedEndSound, score, playGameOverHappy, playGameOverSad]);
 
     const handleAnswer = useCallback((optionIndex: number) => {
         if (selectedAnswer !== null || isGameOver) return;
@@ -91,6 +134,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
         setIsCorrect(correct);
 
         if (correct) {
+            playCorrect();
             setScore(prev => prev + 1);
 
             // Move to next question after short delay
@@ -111,7 +155,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                 setIsGameOver(true);
             }, 1000);
         }
-    }, [selectedAnswer, currentQuestion, currentIndex, questions.length, isGameOver]);
+    }, [selectedAnswer, currentQuestion, currentIndex, questions.length, isGameOver, playCorrect]);
 
     const handleRestart = () => {
         setCurrentIndex(0);
@@ -121,6 +165,8 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
         setIsGameOver(false);
         setTimeLeft(TIMER_DURATION);
         setIsAnswering(false);
+        setShowConfetti(false);
+        setHasPlayedEndSound(false);
     };
 
     const timerPercentage = (timeLeft / TIMER_DURATION) * 100;
@@ -129,66 +175,115 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
             'from-red-400 to-rose-500';
 
     if (isGameOver) {
-        const isWin = currentIndex === questions.length - 1 && isCorrect;
+        const isWin = score >= WIN_THRESHOLD;
+        const isAllCorrect = currentIndex === questions.length - 1 && isCorrect;
 
         return (
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center"
-            >
+            <>
+                <Confetti active={showConfetti} />
                 <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", delay: 0.2 }}
-                    className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg ${score > 0 ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-400 to-rose-500'
-                        }`}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center"
                 >
-                    {score > 0 ? (
-                        <Trophy className="w-12 h-12 text-white" />
-                    ) : (
-                        <XCircle className="w-12 h-12 text-white" />
-                    )}
-                </motion.div>
-
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                    {isWin ? '🎉 Xuất sắc!' : 'Game Over!'}
-                </h2>
-
-                <div className="flex items-center justify-center gap-2 mb-6">
-                    <Flame className="text-orange-500" />
-                    <span className="text-4xl font-bold text-gray-800">{score}</span>
-                    <span className="text-gray-500">điểm</span>
-                </div>
-
-                {!isWin && isCorrect === false && (
-                    <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200">
-                        <p className="text-red-600 text-sm mb-1">Đáp án đúng:</p>
-                        <p className="font-bold text-red-700">{currentQuestion?.vocabulary.word}</p>
-                    </div>
-                )}
-
-                <div className="flex gap-4 justify-center">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleRestart}
-                        className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium flex items-center gap-2 shadow-lg"
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", delay: 0.2 }}
+                        className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg ${isWin ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-400 to-rose-500'
+                            }`}
                     >
-                        <RotateCcw size={18} />
-                        Chơi lại
-                    </motion.button>
-                    <Link href="/learn">
+                        {isWin ? (
+                            <Trophy className="w-12 h-12 text-white" />
+                        ) : (
+                            <XCircle className="w-12 h-12 text-white" />
+                        )}
+                    </motion.div>
+
+                    <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                        Game Over!
+                    </h2>
+
+                    {isWin && (
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="text-lg text-emerald-600 font-medium mb-2"
+                        >
+                            🎉 Tuyệt vời! Bạn đạt {">"}= {WIN_THRESHOLD} điểm!
+                        </motion.p>
+                    )}
+
+                    <div className="flex items-center justify-center gap-2 mb-6">
+                        <Flame className="text-orange-500" />
+                        <span className="text-4xl font-bold text-gray-800">{score}</span>
+                        <span className="text-gray-500">điểm</span>
+                    </div>
+
+                    {!isAllCorrect && isCorrect === false && currentQuestion && (
+                        <div className="mb-6 p-5 rounded-2xl bg-red-50 border border-red-200 text-left max-w-md mx-auto">
+                            <p className="text-red-600 text-sm mb-3 font-medium">Đáp án đúng:</p>
+
+                            {/* English word with part of speech */}
+                            <div className="mb-3">
+                                <span className="text-2xl font-bold text-red-700">
+                                    {currentQuestion.vocabulary.word}
+                                </span>
+                                <span className="ml-2 px-2 py-1 rounded-lg bg-red-100 text-red-600 text-sm">
+                                    {currentQuestion.vocabulary.partOfSpeech}
+                                </span>
+                                {currentQuestion.vocabulary.phonetic && (
+                                    <span className="ml-2 text-red-500 text-sm italic">
+                                        {currentQuestion.vocabulary.phonetic}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Vietnamese meaning */}
+                            <p className="text-gray-700 mb-3">
+                                <span className="text-gray-500">Nghĩa: </span>
+                                <span className="font-medium">{currentQuestion.vocabulary.meaning}</span>
+                            </p>
+
+                            {/* Example sentence */}
+                            {currentQuestion.vocabulary.example && (
+                                <div className="pt-3 border-t border-red-200">
+                                    <p className="text-gray-600 text-sm italic">
+                                        "{currentQuestion.vocabulary.example}"
+                                    </p>
+                                    {currentQuestion.vocabulary.exampleTranslation && (
+                                        <p className="text-gray-500 text-sm mt-1">
+                                            → {currentQuestion.vocabulary.exampleTranslation}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 justify-center">
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium"
+                            onClick={handleRestart}
+                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium flex items-center gap-2 shadow-lg"
                         >
-                            Quay lại
+                            <RotateCcw size={18} />
+                            Chơi lại
                         </motion.button>
-                    </Link>
-                </div>
-            </motion.div>
+                        <Link href="/learn">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium"
+                            >
+                                Quay lại
+                            </motion.button>
+                        </Link>
+                    </div>
+                </motion.div>
+            </>
         );
     }
 
@@ -217,7 +312,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                 </div>
             </div>
 
-            {/* Question Card */}
+            {/* Question Card - English word with phonetic */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={currentIndex}
@@ -226,17 +321,22 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-6"
                 >
-                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">Nghĩa tiếng Việt</p>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                        {currentQuestion.vocabulary.meaning}
+                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">Từ tiếng Anh</p>
+                    <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                        {currentQuestion.vocabulary.word}
                     </h2>
-                    <p className="text-gray-500 text-sm">
-                        ({currentQuestion.vocabulary.partOfSpeech})
-                    </p>
+                    <div className="flex items-center gap-2 text-gray-500">
+                        <span className="px-2 py-1 rounded-lg bg-gray-100 text-sm">
+                            {currentQuestion.vocabulary.partOfSpeech}
+                        </span>
+                        <span className="text-sm italic">
+                            {currentQuestion.vocabulary.phonetic}
+                        </span>
+                    </div>
                 </motion.div>
             </AnimatePresence>
 
-            {/* Options */}
+            {/* Options - Vietnamese meanings */}
             <div className="grid grid-cols-2 gap-3">
                 {currentQuestion.options.map((option, index) => {
                     const isSelected = selectedAnswer === index;

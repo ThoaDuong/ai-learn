@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Zap, Timer, PenLine, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Header from "@/common/components/Header";
@@ -39,7 +39,7 @@ const learningModes = [
     }
 ];
 
-const containerVariants = {
+const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
         opacity: 1,
@@ -49,7 +49,7 @@ const containerVariants = {
     }
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
     hidden: {
         opacity: 0,
         y: 40,
@@ -73,7 +73,7 @@ export default function LearnPage() {
             <Header />
 
             <main className="flex-1 py-8 px-4">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-7xl mx-auto">
                     {/* Hero Section */}
                     <motion.div
                         className="text-center mb-12"

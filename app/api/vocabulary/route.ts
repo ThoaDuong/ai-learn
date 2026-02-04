@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
             if (!defaultGroup) {
                 const result = await groupsCollection.insertOne({
                     userId: user._id,
-                    name: "General",
+                    name: "My Voca",
                     isDefault: true,
                     createdAt: new Date(),
                 });

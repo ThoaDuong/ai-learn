@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI English - Học tiếng Anh cùng AI",
-  description: "Ứng dụng học tiếng Anh thông minh với Gemini AI",
+  title: "TLearn – Keep learning, stay chill",
+  description: "Better words, better vibes. Don't make it complicated.",
 };
 
 export default function RootLayout({

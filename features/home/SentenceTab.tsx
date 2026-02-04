@@ -66,7 +66,7 @@ export default function SentenceTab() {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto">
+        <div className="w-full max-w-7xl mx-auto">
             <div className="grid md:grid-cols-2 gap-6 h-[300px]">
                 {/* Left Block - Input */}
                 <div className="flex flex-col h-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg overflow-hidden focus-within:border-blue-500/50 transition-colors">

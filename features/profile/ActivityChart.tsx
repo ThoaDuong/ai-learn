@@ -12,6 +12,45 @@ interface ActivityChartProps {
     data: ActivityData[];
 }
 
+// Format hours to display as 15p, 30p, 45p, 1h, 1h15p, etc.
+const formatTimeLabel = (hours: number): string => {
+    if (hours === 0) return "0";
+
+    const totalMinutes = Math.round(hours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    if (h === 0) {
+        return `${m}p`;
+    } else if (m === 0) {
+        return `${h}h`;
+    } else {
+        return `${h}h${m}p`;
+    }
+};
+
+// Generate appropriate Y-axis ticks based on max value
+const generateTicks = (maxHours: number): number[] => {
+    if (maxHours <= 0.25) {
+        // Up to 15 minutes: show 5p, 10p, 15p
+        return [0, 0.083, 0.167, 0.25];
+    } else if (maxHours <= 1) {
+        // Up to 1 hour: show 15p, 30p, 45p, 1h
+        return [0, 0.25, 0.5, 0.75, 1];
+    } else if (maxHours <= 2) {
+        // Up to 2 hours: show 30p, 1h, 1h30p, 2h
+        return [0, 0.5, 1, 1.5, 2];
+    } else {
+        // More than 2 hours: show 1h increments
+        const maxTick = Math.ceil(maxHours);
+        const ticks = [];
+        for (let i = 0; i <= maxTick; i++) {
+            ticks.push(i);
+        }
+        return ticks;
+    }
+};
+
 export default function ActivityChart({ data }: ActivityChartProps) {
     // Colors for bars with gradient effect
     const barColors = [
@@ -24,6 +63,10 @@ export default function ActivityChart({ data }: ActivityChartProps) {
         "#3b82f6",
     ];
 
+    // Calculate max hours for tick generation
+    const maxHours = Math.max(...data.map(d => d.hours), 0.25);
+    const ticks = generateTicks(maxHours);
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -33,7 +76,7 @@ export default function ActivityChart({ data }: ActivityChartProps) {
         >
             <div className="mb-6">
                 <h3 className="text-lg font-bold text-gray-900">Weekly Activity</h3>
-                <p className="text-sm text-gray-500 mt-1">Active hours per day this week</p>
+                <p className="text-sm text-gray-500 mt-1">Active time per day this week</p>
             </div>
 
             <div className="w-full h-64 sm:h-80">
@@ -43,7 +86,7 @@ export default function ActivityChart({ data }: ActivityChartProps) {
                         margin={{
                             top: 5,
                             right: 10,
-                            left: 0,
+                            left: 10,
                             bottom: 5,
                         }}
                     >
@@ -54,14 +97,11 @@ export default function ActivityChart({ data }: ActivityChartProps) {
                             axisLine={{ stroke: '#d1d5db' }}
                         />
                         <YAxis
-                            tick={{ fill: '#6b7280', fontSize: 12 }}
+                            tick={{ fill: '#6b7280', fontSize: 11 }}
                             axisLine={{ stroke: '#d1d5db' }}
-                            label={{
-                                value: 'Hours',
-                                angle: -90,
-                                position: 'insideLeft',
-                                style: { fill: '#6b7280', fontSize: 12 }
-                            }}
+                            tickFormatter={formatTimeLabel}
+                            ticks={ticks}
+                            domain={[0, ticks[ticks.length - 1]]}
                         />
                         <Tooltip
                             contentStyle={{
@@ -72,8 +112,8 @@ export default function ActivityChart({ data }: ActivityChartProps) {
                             }}
                             cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                             formatter={(value: number | undefined) => {
-                                if (value === undefined) return ['0 hours', 'Active Time'];
-                                return [`${value} hours`, 'Active Time'];
+                                if (value === undefined) return ['0', 'Active Time'];
+                                return [formatTimeLabel(value), 'Active Time'];
                             }}
                         />
                         <Bar
@@ -91,3 +131,4 @@ export default function ActivityChart({ data }: ActivityChartProps) {
         </motion.div>
     );
 }
+

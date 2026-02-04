@@ -18,7 +18,7 @@ export default function Home() {
             <Header />
 
             {/* Main Content */}
-            <main className="flex-1 max-w-5xl mx-auto px-4 py-10 w-full">
+            <main className="flex-1 max-w-7xl mx-auto px-4 py-10 w-full">
                 <div className="text-center mb-12">
                     <h2 className="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">
                         TLearn – Keep learning, stay chill

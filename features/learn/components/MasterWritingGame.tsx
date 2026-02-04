@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, RotateCcw, Lightbulb, AlertCircle } from "lucide-react";
+import { Trophy, RotateCcw, Lightbulb, AlertCircle, X } from "lucide-react";
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import VocabularyInfoCard from "./VocabularyInfoCard";
+import CloseConfirmDialog from "./CloseConfirmDialog";
 
 interface MasterWritingGameProps {
     vocabularies: Vocabulary[];
@@ -23,6 +24,7 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
     const [isShaking, setIsShaking] = useState(false);
     const [correctCount, setCorrectCount] = useState(0);
     const [isComplete, setIsComplete] = useState(false);
+    const [showCloseDialog, setShowCloseDialog] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const currentVocab = vocabularies[currentIndex];
@@ -89,6 +91,15 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
         setIsComplete(false);
     };
 
+    const handleClose = () => {
+        setShowCloseDialog(true);
+    };
+
+    const handleConfirmClose = () => {
+        setShowCloseDialog(false);
+        onComplete();
+    };
+
     if (isComplete) {
         const percentage = Math.round((correctCount / vocabularies.length) * 100);
 
@@ -117,7 +128,7 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                             animate={{ width: `${percentage}%` }}
                             transition={{ duration: 1, delay: 0.5 }}
                             className={`h-full rounded-full ${percentage >= 80 ? 'bg-purple-500' :
-                                    percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                 }`}
                         />
                     </div>
@@ -172,11 +183,21 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
 
     return (
         <div className="w-full max-w-lg mx-auto">
-            {/* Progress */}
+            {/* Header: Progress + Close Button */}
             <div className="mb-8">
-                <div className="flex justify-between text-sm text-gray-500 mb-2">
+                <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
                     <span>Từ {currentIndex + 1}/{vocabularies.length}</span>
-                    <span>Đúng: {correctCount}</span>
+                    <div className="flex items-center gap-3">
+                        <span>Đúng: {correctCount}</span>
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={handleClose}
+                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                        >
+                            <X className="w-4 h-4 text-gray-600" />
+                        </motion.button>
+                    </div>
                 </div>
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <motion.div
@@ -234,8 +255,8 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                         onChange={(e) => setUserInput(e.target.value)}
                         placeholder="Nhập từ tiếng Anh..."
                         className={`w-full px-6 py-4 rounded-2xl border-2 text-lg font-medium outline-none transition-all ${isShaking
-                                ? 'border-red-400 bg-red-50'
-                                : 'border-gray-200 focus:border-purple-400 bg-white'
+                            ? 'border-red-400 bg-red-50'
+                            : 'border-gray-200 focus:border-purple-400 bg-white'
                             }`}
                         autoComplete="off"
                         autoCapitalize="off"
@@ -265,6 +286,13 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                     Kiểm tra
                 </motion.button>
             </form>
+
+            {/* Close Confirmation Dialog */}
+            <CloseConfirmDialog
+                isOpen={showCloseDialog}
+                onConfirm={handleConfirmClose}
+                onCancel={() => setShowCloseDialog(false)}
+            />
         </div>
     );
 }

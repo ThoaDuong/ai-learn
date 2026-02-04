@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         if (!defaultGroup) {
             await groupsCollection.insertOne({
                 userId: user._id,
-                name: "General",
+                name: "My Voca",
                 isDefault: true,
                 createdAt: new Date(),
             });

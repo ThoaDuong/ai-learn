@@ -5,12 +5,17 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useProfileOptional } from "@/common/contexts/ProfileContext";
 
 export default function AuthButton() {
     const { data: session, status } = useSession();
     const [isOpen, setIsOpen] = useState(false);
     const [streak, setStreak] = useState<number>(0);
     const router = useRouter();
+    const profileContext = useProfileOptional();
+
+    // Use context avatar if available, otherwise fall back to session
+    const avatarImage = profileContext?.profile?.image || session?.user?.image;
 
     // Fetch streak when user is authenticated
     useEffect(() => {
@@ -71,9 +76,9 @@ export default function AuthButton() {
                     )}
 
                     {/* Avatar */}
-                    {session.user.image ? (
+                    {avatarImage ? (
                         <Image
-                            src={session.user.image}
+                            src={avatarImage}
                             alt={session.user.name || "User"}
                             width={40}
                             height={40}
@@ -111,7 +116,7 @@ export default function AuthButton() {
                                 <button
                                     onClick={() => {
                                         setIsOpen(false);
-                                        router.push("/profile?view=profile");
+                                        router.push("/profile?tab=profile");
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
                                 >
@@ -124,7 +129,7 @@ export default function AuthButton() {
                                 <button
                                     onClick={() => {
                                         setIsOpen(false);
-                                        router.push("/profile?view=vocabulary");
+                                        router.push("/profile?tab=vocabulary");
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
                                 >

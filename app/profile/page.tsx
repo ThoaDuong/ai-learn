@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { Settings, Calendar, Mail, Flame, User } from "lucide-react";
 import Header from "@/common/components/Header";
 import Footer from "@/common/components/Footer";
 import AuthButton from "@/common/components/AuthButton";
@@ -14,10 +15,10 @@ import Pagination from "@/features/vocabulary/Pagination";
 import GroupManagement from "@/features/vocabulary/GroupManagement";
 import EditVocaModal from "@/features/vocabulary/EditVocaModal";
 import ConfirmDialog from "@/features/vocabulary/ConfirmDialog";
-import ProfileStats from "@/features/profile/ProfileStats";
-import StreakStats from "@/features/profile/StreakStats";
 import ActivityChart from "@/features/profile/ActivityChart";
 import AvatarUploader from "@/features/profile/AvatarUploader";
+import StreakCalendar from "@/features/profile/StreakCalendar";
+import { useProfile } from "@/common/contexts/ProfileContext";
 
 interface Vocabulary {
     _id: string;
@@ -30,7 +31,6 @@ interface Vocabulary {
     groupId?: string;
     image?: string;
     ipa?: string;
-    // Added for compatibility with EditVocaModal
     phonetic?: string;
     level?: string;
     exampleTranslation?: string;
@@ -42,7 +42,7 @@ interface Group {
     description?: string;
 }
 
-interface Profile {
+interface ProfileData {
     name: string;
     email: string;
     image: string;
@@ -54,6 +54,7 @@ interface Stats {
     activeDays: number;
     activeTime: number;
     currentStreak: number;
+    activeDates?: string[];
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -62,15 +63,16 @@ function ProfileContent() {
     const { data: session, status, update } = useSession();
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { setProfile: setContextProfile, updateAvatar } = useProfile();
 
-    const [profile, setProfile] = useState<Profile | null>(null);
+    const [profile, setProfile] = useState<ProfileData | null>(null);
     const [stats, setStats] = useState<Stats | null>(null);
     const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
 
     // Vocabulary State
     const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
-    const [activeTab, setActiveTab] = useState<"profile" | "vocabulary">("profile");
+    const [activeTab, setActiveTab] = useState<"analytics" | "vocabulary">("analytics");
 
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -102,6 +104,9 @@ function ProfileContent() {
             setEditName(data.profile.name || "");
             setEditImage(data.profile.image || "");
 
+            // Sync with context
+            setContextProfile(data.profile);
+
             if (data.weeklyActivity) {
                 setWeeklyActivity(data.weeklyActivity);
             }
@@ -112,7 +117,7 @@ function ProfileContent() {
 
     const fetchGroups = async () => {
         try {
-            const res = await fetch("/api/groups");
+            const res = await fetch("/api/vocabulary/groups");
             const data = await res.json();
             if (data.groups) {
                 setGroups(data.groups);
@@ -124,7 +129,7 @@ function ProfileContent() {
 
     const fetchVocabulary = async () => {
         try {
-            const res = await fetch("/api/vocabulary/list");
+            const res = await fetch("/api/vocabulary");
             const data = await res.json();
             if (data.vocabularies) {
                 setVocabularies(data.vocabularies);
@@ -138,18 +143,17 @@ function ProfileContent() {
 
     useEffect(() => {
         if (status === "authenticated") {
-            // Parallel fetching
             Promise.all([fetchProfile(), fetchGroups(), fetchVocabulary()]);
-        } else if (status === "unauthenticated") {
-            // Do nothing, redirect handled by render logic or middleware
         }
     }, [status]);
 
-    // Handle initial tab from URL ?tab=vocabulary
+    // Handle initial tab from URL
     useEffect(() => {
         const tab = searchParams.get("tab");
         if (tab === "vocabulary") {
             setActiveTab("vocabulary");
+        } else if (tab === "profile" || !tab) {
+            setActiveTab("analytics");
         }
     }, [searchParams]);
 
@@ -176,15 +180,14 @@ function ProfileContent() {
 
             setSaveMessage("Profile updated successfully!");
 
-            // Sync session image if changed
-            if (editImage !== profile?.image) {
-                await update({ image: editImage });
-            }
+            // Update local state
+            setProfile((prev) => prev ? { ...prev, name: editName, image: editImage } : null);
 
-            // Reload to ensure full sync
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Update context for instant header sync
+            updateAvatar(editImage);
+
+
+            setIsEditing(false);
         } catch (error) {
             setSaveMessage(error instanceof Error ? error.message : "Failed to update profile");
         } finally {
@@ -192,9 +195,9 @@ function ProfileContent() {
         }
     };
 
-    // --- Vocabulary Management Handlers (Preserved) ---
+    // --- Vocabulary Management Handlers ---
     const handleAddGroup = async (name: string, description?: string) => {
-        const res = await fetch("/api/groups", {
+        const res = await fetch("/api/vocabulary/groups", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, description }),
@@ -208,7 +211,7 @@ function ProfileContent() {
     };
 
     const handleUpdateGroup = async (id: string, name: string, description?: string) => {
-        const res = await fetch("/api/groups", {
+        const res = await fetch("/api/vocabulary/groups", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id, name, description }),
@@ -224,14 +227,14 @@ function ProfileContent() {
     const handleDeleteGroup = async (id: string) => {
         if (!confirm("Are you sure? Vocabulary in this group will be moved to 'Ungrouped'.")) return;
         try {
-            const res = await fetch(`/api/groups?id=${id}`, {
+            const res = await fetch(`/api/vocabulary/groups?id=${id}`, {
                 method: "DELETE",
             });
             const data = await res.json();
             if (data.success) {
                 if (selectedGroupId === id) setSelectedGroupId(null);
                 fetchGroups();
-                fetchVocabulary(); // Refresh vocab to reflect ungrouping
+                fetchVocabulary();
             }
         } catch (error) {
             console.error("Error deleting group:", error);
@@ -273,7 +276,7 @@ function ProfileContent() {
             });
             const data = await res.json();
             if (data.success) {
-                setVocabularies(prev => prev.filter(v => v._id !== deletingVocab._id));
+                setVocabularies((prev) => prev.filter((v) => v._id !== deletingVocab._id));
                 setDeletingVocab(null);
             }
         } catch (error) {
@@ -294,6 +297,16 @@ function ProfileContent() {
         (currentPage - 1) * ITEMS_PER_PAGE,
         currentPage * ITEMS_PER_PAGE
     );
+
+    // Format time display
+    const formatActiveTime = (hours: number) => {
+        if (hours < 1) {
+            return `${Math.round(hours * 60)}p`;
+        }
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return m > 0 ? `${h}h ${m}p` : `${h}h`;
+    };
 
     // Loading State
     if (status === "loading") {
@@ -339,20 +352,144 @@ function ProfileContent() {
             <Header />
 
             <main className="flex-1 container mx-auto px-4 py-8 relative z-10 w-full max-w-7xl">
+                {/* Profile Header Section - 70/30 Split */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="grid grid-cols-1 md:grid-cols-[70%_30%] gap-4 mb-8"
+                >
+                    {/* Left Part (70%) - Avatar + User Info + Settings */}
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                        {isEditing ? (
+                            // Edit Mode
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-bold text-gray-900">Edit Profile</h2>
+                                    <button
+                                        onClick={() => {
+                                            setIsEditing(false);
+                                            setEditName(profile?.name || "");
+                                            setEditImage(profile?.image || "");
+                                            setSaveMessage("");
+                                        }}
+                                        className="text-gray-500 hover:text-gray-700"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+
+                                <AvatarUploader
+                                    currentImage={editImage}
+                                    googleImage={profile?.googleImage}
+                                    onSave={async (base64) => setEditImage(base64)}
+                                    onRevert={async () => setEditImage(profile?.googleImage || "")}
+                                    isSaving={isSaving}
+                                />
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                                    <input
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                        placeholder="Enter your name"
+                                    />
+                                </div>
+
+                                {saveMessage && (
+                                    <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+                                        {saveMessage}
+                                    </p>
+                                )}
+
+                                <button
+                                    onClick={handleSaveProfile}
+                                    disabled={isSaving}
+                                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                >
+                                    {isSaving ? "Saving..." : "Save Changes"}
+                                </button>
+                            </div>
+                        ) : (
+                            // View Mode
+                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                {/* Avatar */}
+                                <div className="flex-shrink-0">
+                                    {profile?.image ? (
+                                        <Image
+                                            src={profile.image}
+                                            alt={profile.name || "User"}
+                                            width={80}
+                                            height={80}
+                                            className="rounded-full border-2 border-gray-200 object-cover w-20 h-20"
+                                        />
+                                    ) : (
+                                        <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold border-2 border-gray-200">
+                                            {profile?.name?.charAt(0).toUpperCase() || "U"}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* User Info */}
+                                <div className="flex-1 text-center md:text-left">
+                                    <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                                        <User size={16} className="text-gray-400" />
+                                        <h2 className="text-xl font-bold text-gray-900">{profile?.name || "User"}</h2>
+                                    </div>
+                                    <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                                        <Mail size={14} className="text-gray-400" />
+                                        <p className="text-gray-500 text-sm">{profile?.email}</p>
+                                    </div>
+                                    <div className="flex items-center justify-center md:justify-start gap-2">
+                                        <Calendar size={14} className="text-gray-400" />
+                                        <p className="text-gray-500 text-sm">
+                                            Joined {stats?.joinDate ? new Date(stats.joinDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Settings Icon */}
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    className="p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
+                                >
+                                    <Settings size={20} className="text-gray-600" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Part (30%) - Streak Card */}
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl border border-orange-200 shadow-sm p-6 flex flex-col items-center justify-center">
+                        <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity, repeatType: "loop" }}
+                            className="text-5xl mb-2"
+                        >
+                            🔥
+                        </motion.div>
+                        <div className="text-4xl font-extrabold text-orange-600">{stats?.currentStreak || 0}</div>
+                        <p className="text-sm font-semibold text-gray-700 mt-1">
+                            {(stats?.currentStreak || 0) === 1 ? "day streak" : "days streak"}
+                        </p>
+                    </div>
+                </motion.div>
+
                 {/* Tabs */}
                 <div className="flex justify-center mb-8">
                     <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-white/50 inline-flex">
                         <button
                             onClick={() => {
-                                setActiveTab("profile");
-                                router.push("/profile");
+                                setActiveTab("analytics");
+                                router.push("/profile?tab=profile");
                             }}
-                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "profile"
+                            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === "analytics"
                                 ? "bg-blue-600 text-white shadow-md shadow-blue-200"
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 }`}
                         >
-                            Profile & Stats
+                            Analytics
                         </button>
                         <button
                             onClick={() => {
@@ -364,139 +501,49 @@ function ProfileContent() {
                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                 }`}
                         >
-                            My Vocabulary
+                            Voca List
                         </button>
                     </div>
                 </div>
 
                 <AnimatePresence mode="wait">
-                    {activeTab === "profile" ? (
+                    {activeTab === "analytics" ? (
                         <motion.div
-                            key="profile"
+                            key="analytics"
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                         >
-                            <div className="space-y-6 max-w-7xl mx-auto">
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    {/* Left Column: Profile Header/Edit */}
-                                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full">
-                                        <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                                            <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
-                                            <p className="text-sm text-gray-600 mt-1">Manage your account details</p>
-                                        </div>
-
-                                        <div className="p-8 flex flex-col items-center justify-center">
-                                            {/* Avatar Section */}
-                                            <div className="flex flex-col items-center gap-6 mb-8 w-full">
-                                                {isEditing ? (
-                                                    <div className="w-full">
-                                                        <AvatarUploader
-                                                            currentImage={editImage}
-                                                            googleImage={profile?.googleImage}
-                                                            onSave={async (base64) => setEditImage(base64)}
-                                                            onRevert={async () => setEditImage(profile?.googleImage || "")}
-                                                            isSaving={isSaving}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="relative">
-                                                            {profile?.image ? (
-                                                                <Image
-                                                                    src={profile.image}
-                                                                    alt={profile.name || "User"}
-                                                                    width={120}
-                                                                    height={120}
-                                                                    className="rounded-full ring-4 ring-gray-100 object-cover w-[120px] h-[120px]"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-[120px] h-[120px] rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold ring-4 ring-gray-100">
-                                                                    {profile?.name?.charAt(0).toUpperCase() || "U"}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <h3 className="text-2xl font-bold text-gray-900">
-                                                                {profile?.name || "User"}
-                                                            </h3>
-                                                            <p className="text-gray-500 font-medium">{profile?.email}</p>
-                                                        </div>
-                                                    </>
-                                                )}
+                            {/* Analytics Tab - 70/30 Split */}
+                            <div className="grid grid-cols-1 md:grid-cols-[70%_30%] gap-6">
+                                {/* Left (70%) - Stats Card + Bar Chart */}
+                                <div className="space-y-6">
+                                    {/* Stats Card */}
+                                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                                        <h3 className="text-lg font-bold text-gray-900 mb-4">Learning Stats</h3>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                            <div className="bg-blue-50 rounded-xl p-4">
+                                                <p className="text-sm text-gray-500 font-medium">Active Days</p>
+                                                <p className="text-2xl font-bold text-blue-600">{stats?.activeDays || 0}</p>
                                             </div>
-
-                                            {/* Edit Form */}
-                                            {isEditing ? (
-                                                <div className="space-y-6 w-full max-w-md">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
-                                                            Name
-                                                        </label>
-                                                        <input
-                                                            type="text"
-                                                            value={editName}
-                                                            onChange={(e) => setEditName(e.target.value)}
-                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none text-center"
-                                                            placeholder="Enter your name"
-                                                        />
-                                                    </div>
-
-                                                    {saveMessage && (
-                                                        <p className={`text-sm text-center ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-                                                            {saveMessage}
-                                                        </p>
-                                                    )}
-
-                                                    <div className="flex gap-3 justify-center">
-                                                        <button
-                                                            onClick={handleSaveProfile}
-                                                            disabled={isSaving}
-                                                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                                        >
-                                                            {isSaving ? "Saving..." : "Save Changes"}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setIsEditing(false);
-                                                                setEditName(profile?.name || "");
-                                                                setEditImage(profile?.image || "");
-                                                                setSaveMessage("");
-                                                            }}
-                                                            className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setIsEditing(true)}
-                                                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                    Edit Profile
-                                                </button>
-                                            )}
+                                            <div className="bg-purple-50 rounded-xl p-4">
+                                                <p className="text-sm text-gray-500 font-medium">Active Time</p>
+                                                <p className="text-2xl font-bold text-purple-600">{formatActiveTime(stats?.activeTime || 0)}</p>
+                                            </div>
+                                            <div className="bg-green-50 rounded-xl p-4">
+                                                <p className="text-sm text-gray-500 font-medium">Words Saved</p>
+                                                <p className="text-2xl font-bold text-green-600">{vocabularies.length}</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Right Column: Streak & Stats */}
-                                    <div className="flex flex-col gap-6">
-                                        <StreakStats streak={stats?.currentStreak || 0} />
-                                        <ProfileStats
-                                            joinDate={stats?.joinDate ? new Date(stats.joinDate).toLocaleDateString() : "N/A"}
-                                            activeDays={stats?.activeDays || 0}
-                                            activeTime={stats?.activeTime || 0}
-                                        />
-                                    </div>
+                                    {/* Bar Chart */}
+                                    <ActivityChart data={weeklyActivity} />
                                 </div>
 
-                                {/* Activity Chart - Row 2: Full Width */}
-                                <ActivityChart data={weeklyActivity} />
+                                {/* Right (30%) - Calendar */}
+                                <StreakCalendar activeDates={stats?.activeDates || []} />
                             </div>
                         </motion.div>
                     ) : (
@@ -507,6 +554,7 @@ function ProfileContent() {
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                         >
+                            {/* Voca List Tab */}
                             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                                 <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
                                     <h2 className="text-xl font-bold text-gray-900">My Vocabulary</h2>

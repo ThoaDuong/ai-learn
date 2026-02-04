@@ -56,7 +56,7 @@ export default function SpeedRunPage() {
             <Header />
 
             <main className="flex-1 py-8 px-4">
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <motion.div
                         className="text-center mb-8"
