@@ -60,7 +60,7 @@ export default function KeywordTab() {
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Type a word to translate..."
+                    placeholder="Type a word to look up..."
                     className="w-full px-6 py-4 text-lg bg-white/80 backdrop-blur-sm border-2 border-white/50 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-sm hover:border-blue-200"
                     disabled={isLoading}
                 />
@@ -103,7 +103,7 @@ export default function KeywordTab() {
                             <div className="bg-white/80 backdrop-blur-sm border border-red-100/50 rounded-2xl shadow-lg overflow-hidden">
                                 <div className="px-6 py-5 bg-red-50/50 border-b border-red-100">
                                     <h3 className="text-xl font-bold text-red-600 mb-1">{(result as InvalidWord).word}</h3>
-                                    <p className="text-red-500 font-medium">This appears to be an invalid word</p>
+                                    <p className="text-red-500 font-medium">This word seems unfamiliar, we couldn&apos;t find it</p>
                                 </div>
                                 <div className="p-6">
                                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Did you mean?</div>
@@ -122,7 +122,7 @@ export default function KeywordTab() {
                             </div>
                         ) : (
                             <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl">
-                                This tab is for words. For full sentences, switch to the Sentence tab.
+                                This tab is for looking up words. Use the Sentence tab to translate full sentences.
                             </div>
                         )}
                     </motion.div>

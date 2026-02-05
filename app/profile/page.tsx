@@ -356,7 +356,7 @@ function ProfileContent() {
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="grid grid-cols-1 md:grid-cols-[70%_30%] gap-4 mb-8"
+                    className="grid grid-cols-1 md:grid-cols-[70%_30%] gap-4 mb-4"
                 >
                     {/* Left Part (70%) - Avatar + User Info + Settings */}
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -477,7 +477,7 @@ function ProfileContent() {
                 </motion.div>
 
                 {/* Tabs */}
-                <div className="flex justify-center mb-8">
+                <div className="flex justify-start mb-4">
                     <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-white/50 inline-flex">
                         <button
                             onClick={() => {

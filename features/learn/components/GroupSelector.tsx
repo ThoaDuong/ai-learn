@@ -74,11 +74,11 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                 className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6 transition-colors"
             >
                 <ChevronLeft size={20} />
-                <span>Quay lại</span>
+                <span>Back</span>
             </Link>
 
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Chọn nguồn từ vựng</h2>
-            <p className="text-gray-500 mb-6">Học từ bộ B2 hoặc từ nhóm cá nhân của bạn</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Select Learning Source</h2>
+            <p className="text-gray-500 mb-6">Learn from the B2 set or your own vocabulary groups</p>
 
             <div className="space-y-4">
                 {/* Guest Mode - B2 Vocabulary */}
@@ -93,8 +93,8 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                             <Users size={24} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-lg">Bộ từ B2</h3>
-                            <p className="text-white/80 text-sm">50 từ vựng level B2 cơ bản</p>
+                            <h3 className="font-bold text-lg">B2 Vocabulary Set</h3>
+                            <p className="text-white/80 text-sm">50 essential B2 level words</p>
                         </div>
                     </div>
                 </motion.button>
@@ -103,7 +103,7 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                 {status === "authenticated" ? (
                     <div className="space-y-3">
                         <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                            Nhóm cá nhân của bạn
+                            Your Groups
                         </p>
 
                         {loading ? (
@@ -130,7 +130,7 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                                                 </div>
                                                 <div>
                                                     <h3 className="font-semibold text-gray-800">{group.name}</h3>
-                                                    <p className="text-gray-500 text-sm">{group.wordCount} từ</p>
+                                                    <p className="text-gray-500 text-sm">{group.wordCount} words</p>
                                                 </div>
                                             </div>
                                             <ChevronLeft size={20} className="text-gray-400 rotate-180" />
@@ -140,8 +140,8 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                             </AnimatePresence>
                         ) : (
                             <div className="p-6 rounded-2xl bg-gray-100 text-center text-gray-500">
-                                <p className="mb-2">Chưa có nhóm nào đủ {minWords} từ</p>
-                                <p className="text-sm">Thêm từ vựng vào các nhóm của bạn!</p>
+                                <p className="mb-2">No groups with at least {minWords} words yet</p>
+                                <p className="text-sm">Add words to your groups to see them here!</p>
                             </div>
                         )}
                     </div>
@@ -150,8 +150,8 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                         <div className="flex items-center gap-4 text-gray-500">
                             <Lock size={24} />
                             <div>
-                                <h3 className="font-semibold text-gray-700">Đăng nhập để mở khóa</h3>
-                                <p className="text-sm">Học từ các nhóm từ vựng cá nhân của bạn</p>
+                                <h3 className="font-semibold text-gray-700">Login to Unlock</h3>
+                                <p className="text-sm">Learn from your personal vocabulary groups</p>
                             </div>
                         </div>
                     </div>

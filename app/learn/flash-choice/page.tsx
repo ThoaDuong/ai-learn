@@ -33,14 +33,14 @@ export default function FlashChoicePage() {
             }
 
             if (data.vocabularies.length < 4) {
-                setError("Cần ít nhất 4 từ vựng để chơi chế độ này.");
+                setError("You need at least 4 words to play this mode.");
                 return;
             }
 
             setVocabularies(data.vocabularies);
             setGameStarted(true);
         } catch (err) {
-            setError("Không thể tải từ vựng. Vui lòng thử lại.");
+            setError("Unable to load vocabulary. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -68,10 +68,10 @@ export default function FlashChoicePage() {
                             <span>Flash Choice</span>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-                            Trắc nghiệm nhanh
+                            Quick Quiz
                         </h1>
                         <p className="text-gray-500">
-                            Chọn từ tiếng Anh đúng với nghĩa tiếng Việt
+                            Choose the correct English word for the Vietnamese meaning
                         </p>
                     </motion.div>
 
@@ -84,7 +84,7 @@ export default function FlashChoicePage() {
                                 className="text-center py-12"
                             >
                                 <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                                <p className="text-gray-500">Đang tải từ vựng...</p>
+                                <p className="text-gray-500">Loading vocabulary...</p>
                             </motion.div>
                         ) : error ? (
                             <motion.div
@@ -100,7 +100,7 @@ export default function FlashChoicePage() {
                                     }}
                                     className="px-6 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium"
                                 >
-                                    Thử lại
+                                    Try Again
                                 </button>
                             </motion.div>
                         ) : gameStarted && vocabularies.length > 0 ? (

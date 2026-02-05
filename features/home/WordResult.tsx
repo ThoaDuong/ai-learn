@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Volume2 } from "lucide-react";
 import { WordAnalysis } from "@/types";
+import StreakCongratulationsDialog from "../learn/components/StreakCongratulationsDialog";
 
 interface WordResultProps {
     data: WordAnalysis;
@@ -24,6 +25,10 @@ export default function WordResult({ data }: WordResultProps) {
     const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
     const [isSpeaking, setIsSpeaking] = useState(false);
+
+    // Streak logic
+    const [showStreakDialog, setShowStreakDialog] = useState(false);
+    const [newStreakValue, setNewStreakValue] = useState(0);
 
     const handleSpeak = () => {
         if ('speechSynthesis' in window) {
@@ -80,6 +85,22 @@ export default function WordResult({ data }: WordResultProps) {
 
             if (response.ok) {
                 setSaveStatus("success");
+
+                // Check streak
+                try {
+                    const streakRes = await fetch("/api/streak/activity", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ activityType: "word_save" }),
+                    });
+                    const streakData = await streakRes.json();
+                    if (streakData.streakAwarded) {
+                        setNewStreakValue(streakData.newStreak);
+                        setShowStreakDialog(true);
+                    }
+                } catch (e) {
+                    console.error("Failed to check streak:", e);
+                }
             } else {
                 setSaveStatus("error");
                 setErrorMsg(result.error || "Save failed");
@@ -94,6 +115,12 @@ export default function WordResult({ data }: WordResultProps) {
 
     return (
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden">
+            <StreakCongratulationsDialog
+                isOpen={showStreakDialog}
+                newStreak={newStreakValue}
+                onClose={() => setShowStreakDialog(false)}
+            />
+
             {/* Header */}
             <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
                 <div className="flex items-center gap-3">

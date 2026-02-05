@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
 import Confetti from "./Confetti";
+import { useActivityTimer } from "../hooks/useActivityTimer";
+import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
 
 interface SpeedRunGameProps {
     vocabularies: Vocabulary[];
@@ -35,7 +37,53 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const startTimeRef = useRef<number>(Date.now());
 
+    // Streak & Timer logic
+    const [hasCheckedStreak, setHasCheckedStreak] = useState(false);
+    const [showStreakDialog, setShowStreakDialog] = useState(false);
+    const [newStreakValue, setNewStreakValue] = useState(0);
+    const { start, getMinutes } = useActivityTimer();
+
     const { playCorrect, playGameOverSad, playGameOverHappy } = useGameSounds();
+
+    // Start timer on mount
+    useEffect(() => {
+        start();
+        return () => {
+            const minutes = getMinutes();
+            if (minutes > 0) saveActivity(minutes);
+        };
+    }, []);
+
+    const saveActivity = async (minutes: number) => {
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            await fetch('/api/activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ minutes, date: today })
+            });
+        } catch (error) {
+            console.error('Failed to save activity:', error);
+        }
+    };
+
+    const checkStreak = async () => {
+        try {
+            const res = await fetch('/api/streak/activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activityType: 'game_complete', score: 5 })
+            });
+            const data = await res.json();
+
+            if (data.streakAwarded) {
+                setNewStreakValue(data.newStreak);
+                setShowStreakDialog(true);
+            }
+        } catch (error) {
+            console.error('Failed to check streak:', error);
+        }
+    };
 
     // Generate quiz questions with shuffled Vietnamese meaning options
     const questions: QuizQuestion[] = useMemo(() => {
@@ -110,16 +158,24 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
 
     // Play end sound when game over
     useEffect(() => {
-        if (isGameOver && !hasPlayedEndSound) {
-            setHasPlayedEndSound(true);
-            if (score >= WIN_THRESHOLD) {
-                setShowConfetti(true);
-                playGameOverHappy();
-            } else {
-                playGameOverSad();
+        if (isGameOver) {
+            // Check streak logic on game over
+            if (score >= 5 && !hasCheckedStreak) {
+                setHasCheckedStreak(true);
+                checkStreak();
+            }
+
+            if (!hasPlayedEndSound) {
+                setHasPlayedEndSound(true);
+                if (score >= WIN_THRESHOLD) {
+                    setShowConfetti(true);
+                    playGameOverHappy();
+                } else {
+                    playGameOverSad();
+                }
             }
         }
-    }, [isGameOver, hasPlayedEndSound, score, playGameOverHappy, playGameOverSad]);
+    }, [isGameOver, hasPlayedEndSound, score, playGameOverHappy, playGameOverSad, hasCheckedStreak]);
 
     const handleAnswer = useCallback((optionIndex: number) => {
         if (selectedAnswer !== null || isGameOver) return;
@@ -167,6 +223,9 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
         setIsAnswering(false);
         setShowConfetti(false);
         setHasPlayedEndSound(false);
+        setHasCheckedStreak(false);
+        setShowStreakDialog(false);
+        start(); // Restart activity timer
     };
 
     const timerPercentage = (timeLeft / TIMER_DURATION) * 100;
@@ -181,6 +240,11 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
         return (
             <>
                 <Confetti active={showConfetti} />
+                <StreakCongratulationsDialog
+                    isOpen={showStreakDialog}
+                    newStreak={newStreakValue}
+                    onClose={() => setShowStreakDialog(false)}
+                />
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -211,19 +275,19 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                             transition={{ delay: 0.5 }}
                             className="text-lg text-emerald-600 font-medium mb-2"
                         >
-                            🎉 Tuyệt vời! Bạn đạt {">"}= {WIN_THRESHOLD} điểm!
+                            🎉 Amazing! You scored {">"}= {WIN_THRESHOLD} points!
                         </motion.p>
                     )}
 
                     <div className="flex items-center justify-center gap-2 mb-6">
                         <Flame className="text-orange-500" />
                         <span className="text-4xl font-bold text-gray-800">{score}</span>
-                        <span className="text-gray-500">điểm</span>
+                        <span className="text-gray-500">points</span>
                     </div>
 
                     {!isAllCorrect && isCorrect === false && currentQuestion && (
                         <div className="mb-6 p-5 rounded-2xl bg-red-50 border border-red-200 text-left max-w-md mx-auto">
-                            <p className="text-red-600 text-sm mb-3 font-medium">Đáp án đúng:</p>
+                            <p className="text-red-600 text-sm mb-3 font-medium">Correct answer:</p>
 
                             {/* English word with part of speech */}
                             <div className="mb-3">
@@ -242,7 +306,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
 
                             {/* Vietnamese meaning */}
                             <p className="text-gray-700 mb-3">
-                                <span className="text-gray-500">Nghĩa: </span>
+                                <span className="text-gray-500">Meaning: </span>
                                 <span className="font-medium">{currentQuestion.vocabulary.meaning}</span>
                             </p>
 
@@ -250,7 +314,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                             {currentQuestion.vocabulary.example && (
                                 <div className="pt-3 border-t border-red-200">
                                     <p className="text-gray-600 text-sm italic">
-                                        "{currentQuestion.vocabulary.example}"
+                                        &quot;{currentQuestion.vocabulary.example}&quot;
                                     </p>
                                     {currentQuestion.vocabulary.exampleTranslation && (
                                         <p className="text-gray-500 text-sm mt-1">
@@ -270,7 +334,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                             className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium flex items-center gap-2 shadow-lg"
                         >
                             <RotateCcw size={18} />
-                            Chơi lại
+                            Play Again
                         </motion.button>
                         <Link href="/learn">
                             <motion.button
@@ -278,7 +342,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                                 whileTap={{ scale: 0.95 }}
                                 className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium"
                             >
-                                Quay lại
+                                Back
                             </motion.button>
                         </Link>
                     </div>
@@ -321,7 +385,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-6"
                 >
-                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">Từ tiếng Anh</p>
+                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">English Word</p>
                     <h2 className="text-3xl font-bold text-gray-800 mb-2">
                         {currentQuestion.vocabulary.word}
                     </h2>

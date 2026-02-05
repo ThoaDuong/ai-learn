@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2 } from "lucide-react";
 import Link from "next/link";
@@ -8,6 +8,8 @@ import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
 import Confetti from "./Confetti";
 import CloseConfirmDialog from "./CloseConfirmDialog";
+import { useActivityTimer } from "../hooks/useActivityTimer";
+import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
 
 interface FlashChoiceGameProps {
     vocabularies: Vocabulary[];
@@ -31,7 +33,35 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
     const [showConfetti, setShowConfetti] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
 
+    // Streak & Timer logic
+    const [hasShownStreakDialog, setHasShownStreakDialog] = useState(false);
+    const [showStreakDialog, setShowStreakDialog] = useState(false);
+    const [newStreakValue, setNewStreakValue] = useState(0);
+    const { start, getMinutes } = useActivityTimer();
+
     const { playCorrect, playWrong } = useGameSounds();
+
+    // Start timer on mount
+    useEffect(() => {
+        start();
+        return () => {
+            const minutes = getMinutes();
+            if (minutes > 0) saveActivity(minutes);
+        };
+    }, []);
+
+    const saveActivity = async (minutes: number) => {
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            await fetch('/api/activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ minutes, date: today })
+            });
+        } catch (error) {
+            console.error('Failed to save activity:', error);
+        }
+    };
 
     // Generate quiz questions with shuffled Vietnamese meaning options
     const questions: QuizQuestion[] = useMemo(() => {
@@ -63,6 +93,25 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
 
     const currentQuestion = questions[currentIndex];
 
+    const checkStreak = async () => {
+        try {
+            const res = await fetch('/api/streak/activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activityType: 'game_complete', score: 5 })
+            });
+            const data = await res.json();
+
+            if (data.streakAwarded) {
+                setNewStreakValue(data.newStreak);
+                setShowStreakDialog(true);
+                setHasShownStreakDialog(true);
+            }
+        } catch (error) {
+            console.error('Failed to check streak:', error);
+        }
+    };
+
     const handleAnswer = useCallback((optionIndex: number) => {
         if (selectedAnswer !== null && isCorrect) return; // Already answered correctly
 
@@ -74,6 +123,11 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
             playCorrect();
             const newCorrectCount = correctCount + 1;
             setCorrectCount(newCorrectCount);
+
+            // Check streak at 5 correct answers
+            if (newCorrectCount === 5 && !hasShownStreakDialog) {
+                checkStreak();
+            }
 
             // Check if reached 50 correct answers
             if (newCorrectCount >= TOTAL_QUESTIONS) {
@@ -98,7 +152,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
             playWrong();
             // Allow retry - don't advance, just show wrong state
         }
-    }, [selectedAnswer, isCorrect, currentQuestion, currentIndex, questions.length, correctCount, playCorrect, playWrong]);
+    }, [selectedAnswer, isCorrect, currentQuestion, currentIndex, questions.length, correctCount, playCorrect, playWrong, hasShownStreakDialog]);
 
     const handleRestart = () => {
         setCurrentIndex(0);
@@ -107,6 +161,8 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
         setCorrectCount(0);
         setIsComplete(false);
         setShowConfetti(false);
+        setHasShownStreakDialog(false);
+        start(); // Restart timer
     };
 
     const handleClose = () => {
@@ -114,6 +170,8 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
     };
 
     const handleConfirmClose = () => {
+        const minutes = getMinutes();
+        if (minutes > 0) saveActivity(minutes);
         setShowCloseDialog(false);
         onComplete();
     };
@@ -134,6 +192,11 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
         return (
             <>
                 <Confetti active={showConfetti} />
+                <StreakCongratulationsDialog
+                    isOpen={showStreakDialog}
+                    newStreak={newStreakValue}
+                    onClose={() => setShowStreakDialog(false)}
+                />
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -149,14 +212,14 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                     </motion.div>
 
                     <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                        {isFullCompletion ? "🎉 Xuất sắc!" : "Hoàn thành!"}
+                        {isFullCompletion ? "Excellent! 🏆" : "Completed!"}
                     </h2>
                     {isFullCompletion && (
                         <p className="text-lg text-amber-600 font-medium mb-2">
-                            Bạn đã hoàn thành bộ từ vựng này!
+                            You&apos;ve completed this vocabulary set!
                         </p>
                     )}
-                    <p className="text-gray-500 mb-6">Bạn đã trả lời đúng {correctCount}/{TOTAL_QUESTIONS} câu</p>
+                    <p className="text-gray-500 mb-6">Correct: {correctCount}/{TOTAL_QUESTIONS}</p>
 
                     <div className="w-full max-w-xs mx-auto mb-8">
                         <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
@@ -180,7 +243,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                             className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium flex items-center gap-2"
                         >
                             <RotateCcw size={18} />
-                            Chơi lại
+                            Play Again
                         </motion.button>
                         <Link href="/learn">
                             <motion.button
@@ -188,7 +251,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                                 whileTap={{ scale: 0.95 }}
                                 className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium"
                             >
-                                Chế độ khác
+                                Other Modes
                             </motion.button>
                         </Link>
                     </div>
@@ -199,12 +262,18 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
 
     return (
         <div className="w-full max-w-lg mx-auto">
+            <StreakCongratulationsDialog
+                isOpen={showStreakDialog}
+                newStreak={newStreakValue}
+                onClose={() => setShowStreakDialog(false)}
+            />
+
             {/* Header: Progress + Close Button */}
             <div className="mb-8">
                 <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
-                    <span>Câu {currentIndex + 1}/{TOTAL_QUESTIONS}</span>
+                    <span>Question {currentIndex + 1}/{TOTAL_QUESTIONS}</span>
                     <div className="flex items-center gap-3">
-                        <span>Đúng: {correctCount}</span>
+                        <span>Correct: {correctCount}</span>
                         <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -233,7 +302,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                     exit={{ opacity: 0, x: -50 }}
                     className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-6"
                 >
-                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">Từ tiếng Anh</p>
+                    <p className="text-sm text-gray-400 uppercase tracking-wide mb-2">English Word</p>
                     <div className="flex items-center gap-3 mb-2">
                         <h2 className="text-3xl font-bold text-gray-800">
                             {currentQuestion.vocabulary.word}
@@ -307,7 +376,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center text-red-500 mt-4 text-sm"
                 >
-                    Sai rồi! Hãy thử lại.
+                    Wrong! Try again.
                 </motion.p>
             )}
 

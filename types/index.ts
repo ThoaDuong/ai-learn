@@ -12,6 +12,8 @@ export interface User {
   // Streak tracking
   streak?: number;
   lastLoginDate?: Date;
+  streakDates?: string[]; // ISO date strings (YYYY-MM-DD)
+  lastStreakDate?: Date; // Last date streak was earned
   googleImage?: string; // Original Google profile image
   activeDays?: number;
   activeMinutes?: number;

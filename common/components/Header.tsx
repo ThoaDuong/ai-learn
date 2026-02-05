@@ -20,7 +20,7 @@ export default function Header() {
                         className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:scale-105"
                     >
                         <Brain size={18} />
-                        <span>Learn Voca</span>
+                        <span>Learn Vocabulary</span>
                     </Link>
                     <AuthButton />
                 </nav>

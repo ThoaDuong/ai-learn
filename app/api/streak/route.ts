@@ -31,17 +31,51 @@ export async function GET() {
         }
 
         // Calculate and update streak if needed
-        const currentStreak = user.streak || 0;
-        const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
-        const newStreak = calculateStreak(lastLoginDate, currentStreak);
+        // Check if streak is broken
         const now = new Date();
+        const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
 
-        if (newStreak !== currentStreak || !lastLoginDate ||
-            lastLoginDate.toDateString() !== now.toDateString()) {
+        let newStreak = user.streak || 0;
+        let newActiveDays = user.activeDays || 0;
+        let shouldUpdate = false;
+        const updateFields: any = {};
 
-            // Increment active days if it's a new day
-            const newActiveDays = (user.activeDays || 0) + 1;
+        // Calculate days difference
+        if (lastLoginDate) {
+            // Reset hours to compare dates only
+            const last = new Date(lastLoginDate);
+            last.setHours(0, 0, 0, 0);
+            const current = new Date(now);
+            current.setHours(0, 0, 0, 0);
 
+            const diffTime = current.getTime() - last.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 1) {
+                // Gap > 1 day, reset streak
+                newStreak = 0;
+                shouldUpdate = true;
+            } else if (diffDays === 1) {
+                // Consecutive day: maintain streak (do not increment here, wait for activity)
+                // BUT if currentStreak is 0, should we set to 0? Yes.
+                // Nothing to change for streak count
+            } else if (diffDays === 0) {
+                // Same day, no change
+            }
+
+            // Increment active days if new day
+            if (diffDays >= 1) {
+                newActiveDays += 1;
+                shouldUpdate = true;
+            }
+        } else {
+            // First login
+            newStreak = 0; // Start at 0, wait for activity
+            newActiveDays = 1;
+            shouldUpdate = true;
+        }
+
+        if (shouldUpdate || !lastLoginDate) {
             await usersCollection.updateOne(
                 { _id: user._id },
                 {
@@ -61,7 +95,7 @@ export async function GET() {
         }
 
         return NextResponse.json({
-            streak: currentStreak,
+            streak: newStreak,
             updated: false,
         });
     } catch (error) {

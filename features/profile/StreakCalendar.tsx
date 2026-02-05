@@ -126,18 +126,19 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
                         {/* Streak icon for active days */}
                         {day && isActiveDay(day) && !isToday(day) && (
                             <Flame
-                                size={10}
-                                className="absolute -top-0.5 -right-0.5 text-orange-500"
+                                size={14}
+                                className="absolute -top-1.5 -right-1.5 text-orange-500 fill-orange-500"
                             />
                         )}
                         {/* Streak icon for today if active */}
                         {day && isActiveDay(day) && isToday(day) && (
                             <Flame
-                                size={10}
-                                className="absolute -top-0.5 -right-0.5 text-white"
+                                size={14}
+                                className="absolute -top-1.5 -right-1.5 text-white fill-white"
                             />
                         )}
                     </div>
+
                 ))}
             </div>
 

@@ -38,8 +38,8 @@ export default function CloseConfirmDialog({ isOpen, onConfirm, onCancel }: Clos
                                     <AlertTriangle className="w-6 h-6 text-amber-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800">Huỷ tiến trình học?</h3>
-                                    <p className="text-gray-500 text-sm">Tiến trình hiện tại sẽ không được lưu</p>
+                                    <h3 className="text-lg font-bold text-gray-800">Cancel learning session?</h3>
+                                    <p className="text-gray-500 text-sm">Your current progress will not be saved</p>
                                 </div>
                             </div>
 
@@ -50,7 +50,7 @@ export default function CloseConfirmDialog({ isOpen, onConfirm, onCancel }: Clos
                                     onClick={onCancel}
                                     className="flex-1 px-4 py-3 rounded-xl bg-gray-100 text-gray-700 font-medium"
                                 >
-                                    Tiếp tục học
+                                    Continue Learning
                                 </motion.button>
                                 <motion.button
                                     whileHover={{ scale: 1.02 }}
@@ -58,7 +58,7 @@ export default function CloseConfirmDialog({ isOpen, onConfirm, onCancel }: Clos
                                     onClick={onConfirm}
                                     className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-medium"
                                 >
-                                    Huỷ bỏ
+                                    Cancel
                                 </motion.button>
                             </div>
                         </div>

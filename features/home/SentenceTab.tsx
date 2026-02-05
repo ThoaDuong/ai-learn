@@ -84,7 +84,7 @@ export default function SentenceTab() {
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type your sentence here..."
+                        placeholder="Type your sentence..."
                         className="flex-1 w-full p-4 resize-none outline-none text-lg text-gray-800 placeholder:text-gray-400"
                     />
                 </div>
@@ -123,7 +123,7 @@ export default function SentenceTab() {
                                 <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">!</div>
                             )}
                             <h3 className={`font-bold text-lg ${grammarResult.isCorrect ? 'text-green-800' : 'text-orange-800'}`}>
-                                {grammarResult.isCorrect ? "Perfect! No grammar errors found." : "Grammar Suggestions"}
+                                {grammarResult.isCorrect ? "Perfect! Your grammar is spot on." : "Grammar Suggestions"}
                             </h3>
                         </div>
 

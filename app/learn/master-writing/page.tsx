@@ -33,14 +33,14 @@ export default function MasterWritingPage() {
             }
 
             if (data.vocabularies.length < 1) {
-                setError("Chưa có từ vựng nào để học.");
+                setError("No vocabulary available to learn yet.");
                 return;
             }
 
             setVocabularies(data.vocabularies);
             setGameStarted(true);
         } catch (err) {
-            setError("Không thể tải từ vựng. Vui lòng thử lại.");
+            setError("Unable to load vocabulary. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -68,10 +68,10 @@ export default function MasterWritingPage() {
                             <span>Master Writing</span>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-                            Luyện viết từ
+                            Word Writing Practice
                         </h1>
                         <p className="text-gray-500">
-                            Xem nghĩa tiếng Việt, viết từ tiếng Anh. Tối đa 3 lần thử!
+                            See the Vietnamese meaning, write the English word. Max 3 attempts!
                         </p>
                     </motion.div>
 
@@ -84,7 +84,7 @@ export default function MasterWritingPage() {
                                 className="text-center py-12"
                             >
                                 <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                                <p className="text-gray-500">Đang tải từ vựng...</p>
+                                <p className="text-gray-500">Loading vocabulary...</p>
                             </motion.div>
                         ) : error ? (
                             <motion.div
@@ -100,7 +100,7 @@ export default function MasterWritingPage() {
                                     }}
                                     className="px-6 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium"
                                 >
-                                    Thử lại
+                                    Try Again
                                 </button>
                             </motion.div>
                         ) : gameStarted && vocabularies.length > 0 ? (

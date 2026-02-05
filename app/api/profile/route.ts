@@ -39,6 +39,7 @@ export async function GET() {
                 activeDays: user.activeDays || 1,
                 activeTime: user.activeMinutes ? Math.round(user.activeMinutes / 60) : 0,
                 currentStreak: user.streak || 0,
+                activeDates: user.streakDates || [],
             },
             weeklyActivity: (() => {
                 const activity = [];

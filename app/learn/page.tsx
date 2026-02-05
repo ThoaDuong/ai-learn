@@ -10,7 +10,7 @@ const learningModes = [
     {
         id: "flash-choice",
         title: "Flash Choice",
-        description: "Trắc nghiệm 4 đáp án Việt - Anh. Chọn đúng để tiếp tục!",
+        description: "4-option quiz: Vietnamese to English. Choose correctly to continue!",
         icon: Zap,
         gradient: "from-yellow-400 via-orange-400 to-amber-500",
         shadowColor: "shadow-yellow-500/40",
@@ -20,7 +20,7 @@ const learningModes = [
     {
         id: "speed-run",
         title: "Speed Run",
-        description: "Đua tốc độ! Trả lời đúng trong 3 giây để ghi điểm.",
+        description: "Race against time! Answer correctly within 3 seconds to score.",
         icon: Timer,
         gradient: "from-emerald-400 via-green-500 to-teal-500",
         shadowColor: "shadow-green-500/40",
@@ -30,7 +30,7 @@ const learningModes = [
     {
         id: "master-writing",
         title: "Master Writing",
-        description: "Xem nghĩa tiếng Việt, viết từ tiếng Anh. Thử thách thực sự!",
+        description: "See the Vietnamese meaning, write the English word. A real challenge!",
         icon: PenLine,
         gradient: "from-purple-500 via-violet-500 to-indigo-500",
         shadowColor: "shadow-purple-500/40",
@@ -89,7 +89,7 @@ export default function LearnPage() {
                             Learn Vocabulary
                         </h1>
                         <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-                            Chọn chế độ học phù hợp với bạn. Học từ vựng B2 hoặc từ các nhóm cá nhân của bạn!
+                            Choose the learning mode that suits you. Learn B2 vocabulary or from your personal groups!
                         </p>
                     </motion.div>
 
@@ -133,7 +133,7 @@ export default function LearnPage() {
 
                                             {/* Arrow indicator */}
                                             <div className="mt-6 flex items-center text-white/80 group-hover:text-white transition-colors">
-                                                <span className="text-sm font-medium">Bắt đầu học</span>
+                                                <span className="text-sm font-medium">Start Learning</span>
                                                 <motion.span
                                                     className="ml-2"
                                                     animate={{ x: [0, 5, 0] }}
@@ -161,7 +161,7 @@ export default function LearnPage() {
                     >
                         <div className="inline-block px-6 py-3 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/40">
                             <p className="text-gray-600 text-sm">
-                                💡 <strong>Tip:</strong> Đăng nhập để học từ các nhóm từ vựng cá nhân của bạn!
+                                💡 <strong>Tip:</strong> Sign in to learn from your personal vocabulary groups!
                             </p>
                         </div>
                     </motion.div>

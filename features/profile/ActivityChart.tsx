@@ -1,15 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ActivityData {
     day: string;
     hours: number;
+    fullDate?: string;
 }
 
 interface ActivityChartProps {
-    data: ActivityData[];
+    data?: ActivityData[]; // Made optional as we fetch internally
 }
 
 // Format hours to display as 15p, 30p, 45p, 1h, 1h15p, etc.
@@ -51,7 +54,69 @@ const generateTicks = (maxHours: number): number[] => {
     }
 };
 
-export default function ActivityChart({ data }: ActivityChartProps) {
+// Helper to get Monday of current week
+const getMonday = (d: Date) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    const monday = new Date(date.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+};
+
+// Format date as "2/2"
+const formatDateShort = (d: Date) => {
+    return `${d.getDate()}/${d.getMonth() + 1}`;
+};
+
+export default function ActivityChart({ data: initialData }: ActivityChartProps) {
+    const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
+    const [chartData, setChartData] = useState<ActivityData[]>(initialData || []);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Fetch weekly data
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                // Adjust to send local YYYY-MM-DD
+                const offset = weekStart.getTimezoneOffset();
+                const localDate = new Date(weekStart.getTime() - (offset * 60 * 1000));
+                const dateStr = localDate.toISOString().split('T')[0];
+
+                const res = await fetch(`/api/activity?start=${dateStr}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    setChartData(json.activity);
+                }
+            } catch (error) {
+                console.error("Failed to fetch activity:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [weekStart]);
+
+    // Calculate week end date (Sunday)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const weekRangeStr = `${formatDateShort(weekStart)} - ${formatDateShort(weekEnd)}`;
+
+    const goToPrevWeek = () => {
+        const prev = new Date(weekStart);
+        prev.setDate(weekStart.getDate() - 7);
+        setWeekStart(prev);
+    };
+
+    const goToNextWeek = () => {
+        const next = new Date(weekStart);
+        next.setDate(weekStart.getDate() + 7);
+        setWeekStart(next);
+    };
+
     // Colors for bars with gradient effect
     const barColors = [
         "#3b82f6", // blue-500
@@ -64,7 +129,7 @@ export default function ActivityChart({ data }: ActivityChartProps) {
     ];
 
     // Calculate max hours for tick generation
-    const maxHours = Math.max(...data.map(d => d.hours), 0.25);
+    const maxHours = Math.max(...(chartData?.map(d => d.hours) || []), 0.25);
     const ticks = generateTicks(maxHours);
 
     return (
@@ -74,15 +139,44 @@ export default function ActivityChart({ data }: ActivityChartProps) {
             transition={{ duration: 0.3, delay: 0.2 }}
             className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6"
         >
-            <div className="mb-6">
-                <h3 className="text-lg font-bold text-gray-900">Weekly Activity</h3>
-                <p className="text-sm text-gray-500 mt-1">Active time per day this week</p>
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h3 className="text-lg font-bold text-gray-900">Weekly Activity</h3>
+                    <p className="text-sm text-gray-500 mt-1">Active time per day</p>
+                </div>
+
+                {/* Week Navigation */}
+                <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                    <button
+                        onClick={goToPrevWeek}
+                        className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
+                        disabled={isLoading}
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-sm font-semibold text-gray-700 w-24 text-center">
+                        {weekRangeStr}
+                    </span>
+                    <button
+                        onClick={goToNextWeek}
+                        className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
+                        disabled={isLoading}
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
 
-            <div className="w-full h-64 sm:h-80">
+            <div className="w-full h-64 sm:h-80 relative">
+                {isLoading && (
+                    <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                )}
+
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                        data={data}
+                        data={chartData}
                         margin={{
                             top: 5,
                             right: 10,
@@ -121,7 +215,7 @@ export default function ActivityChart({ data }: ActivityChartProps) {
                             radius={[8, 8, 0, 0]}
                             maxBarSize={60}
                         >
-                            {data.map((entry, index) => (
+                            {chartData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
                             ))}
                         </Bar>
@@ -131,4 +225,3 @@ export default function ActivityChart({ data }: ActivityChartProps) {
         </motion.div>
     );
 }
-
