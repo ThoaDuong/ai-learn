@@ -34,6 +34,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     const [isAnswering, setIsAnswering] = useState(false);
     const [showConfetti, setShowConfetti] = useState(false);
     const [hasPlayedEndSound, setHasPlayedEndSound] = useState(false);
+    const [gameKey, setGameKey] = useState(0); // Key to trigger re-shuffle on restart
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const startTimeRef = useRef<number>(Date.now());
 
@@ -86,8 +87,12 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     };
 
     // Generate quiz questions with shuffled Vietnamese meaning options
+    // Also shuffle the order of vocabularies each time gameKey changes (on restart)
     const questions: QuizQuestion[] = useMemo(() => {
-        return vocabularies.map((vocab) => {
+        // Shuffle the vocabularies order
+        const shuffledVocabularies = [...vocabularies].sort(() => Math.random() - 0.5);
+
+        return shuffledVocabularies.map((vocab) => {
             // Get 3 random wrong Vietnamese meanings
             const otherVocabs = vocabularies.filter(v => v.word !== vocab.word);
             const shuffledOthers = otherVocabs.sort(() => Math.random() - 0.5).slice(0, 3);
@@ -104,7 +109,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                 correctIndex
             };
         });
-    }, [vocabularies]);
+    }, [vocabularies, gameKey]); // Re-shuffle when gameKey changes (on restart)
 
     const currentQuestion = questions[currentIndex];
 
@@ -225,6 +230,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
         setHasPlayedEndSound(false);
         setHasCheckedStreak(false);
         setShowStreakDialog(false);
+        setGameKey(prev => prev + 1); // Trigger re-shuffle of vocabulary order
         start(); // Restart activity timer
     };
 

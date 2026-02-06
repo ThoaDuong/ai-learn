@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
 interface ActivityData {
     day: string;
@@ -117,6 +117,13 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
         setWeekStart(next);
     };
 
+    const goToToday = () => {
+        setWeekStart(getMonday(new Date()));
+    };
+
+    // Check if currently viewing this week
+    const isCurrentWeek = getMonday(new Date()).getTime() === weekStart.getTime();
+
     // Colors for bars with gradient effect
     const barColors = [
         "#3b82f6", // blue-500
@@ -145,25 +152,39 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                     <p className="text-sm text-gray-500 mt-1">Active time per day</p>
                 </div>
 
-                {/* Week Navigation */}
-                <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
-                    <button
-                        onClick={goToPrevWeek}
-                        className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
-                        disabled={isLoading}
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    <span className="text-sm font-semibold text-gray-700 w-24 text-center">
-                        {weekRangeStr}
-                    </span>
-                    <button
-                        onClick={goToNextWeek}
-                        className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
-                        disabled={isLoading}
-                    >
-                        <ChevronRight size={16} />
-                    </button>
+                <div className="flex items-center gap-2">
+                    {/* Today Button */}
+                    {!isCurrentWeek && (
+                        <button
+                            onClick={goToToday}
+                            className="px-2.5 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-all flex items-center gap-1"
+                            disabled={isLoading}
+                        >
+                            <CalendarDays size={14} />
+                            Today
+                        </button>
+                    )}
+
+                    {/* Week Navigation */}
+                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                        <button
+                            onClick={goToPrevWeek}
+                            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
+                            disabled={isLoading}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-sm font-semibold text-gray-700 w-24 text-center">
+                            {weekRangeStr}
+                        </span>
+                        <button
+                            onClick={goToNextWeek}
+                            className="p-1.5 rounded-md hover:bg-white hover:shadow-sm transition-all text-gray-600"
+                            disabled={isLoading}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

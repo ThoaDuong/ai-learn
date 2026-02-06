@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Flame } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flame, CalendarDays } from "lucide-react";
 import { useState, useMemo } from "react";
 
 interface StreakCalendarProps {
@@ -55,6 +55,14 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     };
 
+    const goToToday = () => {
+        setCurrentDate(new Date());
+    };
+
+    // Check if currently viewing the current month
+    const now = new Date();
+    const isCurrentMonth = currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() === now.getMonth();
+
     const isToday = (day: number) => {
         const checkDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
         checkDate.setHours(0, 0, 0, 0);
@@ -83,7 +91,18 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
                 >
                     <ChevronLeft size={18} className="text-gray-600" />
                 </button>
-                <h3 className="text-sm font-bold text-gray-900">{monthYear}</h3>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-gray-900">{monthYear}</h3>
+                    {!isCurrentMonth && (
+                        <button
+                            onClick={goToToday}
+                            className="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-all flex items-center gap-1"
+                        >
+                            <CalendarDays size={12} />
+                            Today
+                        </button>
+                    )}
+                </div>
                 <button
                     onClick={goToNextMonth}
                     className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
