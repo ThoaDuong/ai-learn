@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Volume2 } from "lucide-react";
 import { WordAnalysis } from "@/types";
 import StreakCongratulationsDialog from "../learn/components/StreakCongratulationsDialog";
+import SuccessAlert from "@/common/components/SuccessAlert";
 
 interface WordResultProps {
     data: WordAnalysis;
+}
+
+interface SaveSuccessInfo {
+    groupName: string;
+    word: string;
 }
 
 const levelColors: Record<string, string> = {
@@ -19,16 +25,38 @@ const levelColors: Record<string, string> = {
     C2: "bg-red-700",
 };
 
+const PENDING_WORD_KEY = "pendingWordToSave";
+
 export default function WordResult({ data }: WordResultProps) {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [successInfo, setSuccessInfo] = useState<SaveSuccessInfo | null>(null);
 
     // Streak logic
     const [showStreakDialog, setShowStreakDialog] = useState(false);
     const [newStreakValue, setNewStreakValue] = useState(0);
+
+    // Check for pending word after login
+    useEffect(() => {
+        if (status === "authenticated") {
+            const pendingWord = localStorage.getItem(PENDING_WORD_KEY);
+            if (pendingWord) {
+                try {
+                    const wordData = JSON.parse(pendingWord);
+                    // Only auto-save if it matches the current word
+                    if (wordData.word === data.word) {
+                        localStorage.removeItem(PENDING_WORD_KEY);
+                        saveWord(wordData);
+                    }
+                } catch (e) {
+                    localStorage.removeItem(PENDING_WORD_KEY);
+                }
+            }
+        }
+    }, [status, data.word]);
 
     const handleSpeak = () => {
         if ('speechSynthesis' in window) {
@@ -57,12 +85,7 @@ export default function WordResult({ data }: WordResultProps) {
         }
     };
 
-    const handleSave = async () => {
-        if (!session) {
-            signIn("google");
-            return;
-        }
-
+    const saveWord = async (wordData: typeof data) => {
         setIsSaving(true);
         setSaveStatus("idle");
 
@@ -71,13 +94,13 @@ export default function WordResult({ data }: WordResultProps) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    word: data.word,
-                    meaning: data.meaning,
-                    partOfSpeech: data.partOfSpeech,
-                    level: data.level,
-                    phonetic: data.phonetic,
-                    example: data.example,
-                    exampleTranslation: data.exampleTranslation,
+                    word: wordData.word,
+                    meaning: wordData.meaning,
+                    partOfSpeech: wordData.partOfSpeech,
+                    level: wordData.level,
+                    phonetic: wordData.phonetic,
+                    example: wordData.example,
+                    exampleTranslation: wordData.exampleTranslation,
                 }),
             });
 
@@ -85,6 +108,12 @@ export default function WordResult({ data }: WordResultProps) {
 
             if (response.ok) {
                 setSaveStatus("success");
+
+                // Show success alert with group name
+                setSuccessInfo({
+                    groupName: result.groupName || "Ungrouped",
+                    word: wordData.word
+                });
 
                 // Check streak
                 try {
@@ -113,12 +142,34 @@ export default function WordResult({ data }: WordResultProps) {
         }
     };
 
+    const handleSave = async () => {
+        if (!session) {
+            // Store word data to save after login
+            localStorage.setItem(PENDING_WORD_KEY, JSON.stringify(data));
+            signIn("google");
+            return;
+        }
+
+        await saveWord(data);
+    };
+
     return (
-        <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden relative">
             <StreakCongratulationsDialog
                 isOpen={showStreakDialog}
                 newStreak={newStreakValue}
                 onClose={() => setShowStreakDialog(false)}
+            />
+
+            {/* Success Alert Component */}
+            <SuccessAlert
+                isOpen={successInfo !== null}
+                title="Word Saved!"
+                message={successInfo ? `<strong>"${successInfo.word}"</strong> has been saved to <strong>${successInfo.groupName}</strong>` : ""}
+                linkText="View in My Vocabulary"
+                linkHref="/profile?tab=vocabulary"
+                duration={6}
+                onClose={() => setSuccessInfo(null)}
             />
 
             {/* Header */}
@@ -136,7 +187,7 @@ export default function WordResult({ data }: WordResultProps) {
                             ? 'bg-blue-100 text-blue-600'
                             : 'hover:bg-gray-100 text-gray-500 hover:text-blue-600'
                             }`}
-                        title="Phát âm từ"
+                        title="Pronounce word"
                     >
                         <Volume2 className={`w-5 h-5 ${isSpeaking ? 'animate-pulse' : ''}`} />
                     </button>

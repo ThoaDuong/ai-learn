@@ -42,118 +42,119 @@ export default function AuthButton() {
 
     if (session?.user) {
         return (
-            <div
-                className="relative"
-                onMouseEnter={() => setIsOpen(true)}
-                onMouseLeave={() => setIsOpen(false)}
-            >
-                {/* Streak + Avatar */}
-                <button className="flex items-center gap-3 p-1 rounded-full hover:bg-gray-100/50 transition-colors cursor-pointer">
-                    {/* Streak Indicator */}
-                    {streak > 0 && (
-                        <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full"
+            <div className="flex items-center gap-3">
+                {/* Streak Indicator - separate from avatar */}
+                {streak > 0 && (
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-full cursor-default"
+                    >
+                        <motion.span
+                            animate={{
+                                scale: [1, 1.2, 1],
+                            }}
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                repeatType: "loop",
+                            }}
+                            className="text-lg"
                         >
-                            <motion.span
-                                animate={{
-                                    scale: [1, 1.2, 1],
-                                }}
-                                transition={{
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    repeatType: "loop",
-                                }}
-                                className="text-lg"
-                            >
-                                🔥
-                            </motion.span>
-                            <span className="text-sm font-bold text-orange-600">
-                                {streak}
-                            </span>
-                        </motion.div>
-                    )}
+                            <Image src="/images/fire.png" alt="Fire" width={18} height={18} />
+                        </motion.span>
+                        <span className="text-base font-bold text-orange-500">
+                            {streak}
+                        </span>
+                    </motion.div>
+                )}
 
-                    {/* Avatar */}
+                {/* Avatar with hover dropdown */}
+                <div
+                    className="relative"
+                    onMouseEnter={() => setIsOpen(true)}
+                    onMouseLeave={() => setIsOpen(false)}
+                >
                     {avatarImage ? (
                         <Image
                             src={avatarImage}
                             alt={session.user.name || "User"}
                             width={40}
                             height={40}
-                            className="rounded-full ring-2 ring-gray-100"
+                            className="border-2 border-amber-900/70 rounded-full ring-2 ring-gray-100 cursor-pointer"
                         />
                     ) : (
-                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                        <div className="border-2 border-amber-900/70 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold cursor-pointer">
                             {session.user.name?.charAt(0).toUpperCase() || "U"}
                         </div>
                     )}
-                </button>
 
-                {/* Dropdown Menu */}
-                <AnimatePresence>
-                    {isOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                            transition={{ duration: 0.15, ease: "easeOut" }}
-                            className="absolute right-0 top-full mt-2 w-56 bg-white/90 backdrop-blur-md rounded-xl shadow-xl border border-white/50 overflow-hidden z-50"
-                        >
-                            {/* User Info Header */}
-                            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                                <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {session.user.name}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                    {session.user.email}
-                                </p>
-                            </div>
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                        {isOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                className="absolute right-0 top-full pt-2 z-50"
+                            >
+                                <div className="w-56 bg-white/90 backdrop-blur-md rounded-xl shadow-xl border border-white/50 overflow-hidden">
+                                    {/* User Info Header */}
+                                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {session.user.name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">
+                                            {session.user.email}
+                                        </p>
+                                    </div>
 
-                            {/* Menu Items */}
-                            <div className="py-1">
-                                <button
-                                    onClick={() => {
-                                        setIsOpen(false);
-                                        router.push("/profile?tab=profile");
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
-                                >
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                    View Profile
-                                </button>
+                                    {/* Menu Items */}
+                                    <div className="py-1">
+                                        <button
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                router.push("/profile?tab=profile");
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            View Profile
+                                        </button>
 
-                                <button
-                                    onClick={() => {
-                                        setIsOpen(false);
-                                        router.push("/profile?tab=vocabulary");
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
-                                >
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                    </svg>
-                                    My Vocabulary
-                                </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                router.push("/profile?tab=vocabulary");
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                            </svg>
+                                            My Vocabulary
+                                        </button>
 
-                                <div className="border-t border-gray-100 my-1" />
+                                        <div className="border-t border-gray-100 my-1" />
 
-                                <button
-                                    onClick={() => signOut()}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer"
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    Logout
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                        <button
+                                            onClick={() => signOut()}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            Logout
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
         );
     }

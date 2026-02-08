@@ -5,10 +5,12 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, Calendar, Mail, Flame, User } from "lucide-react";
+import { Settings, Calendar, Mail, Flame, User, Trash2, CheckSquare, FolderEdit, X } from "lucide-react";
 import Header from "@/common/components/Header";
 import Footer from "@/common/components/Footer";
 import AuthButton from "@/common/components/AuthButton";
+import SuccessAlert from "@/common/components/SuccessAlert";
+import ErrorAlert from "@/common/components/ErrorAlert";
 import VocaCard from "@/features/vocabulary/VocaCard";
 import GroupTabs from "@/features/vocabulary/GroupTabs";
 import Pagination from "@/features/vocabulary/Pagination";
@@ -90,6 +92,17 @@ function ProfileContent() {
     const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
     const [deletingVocab, setDeletingVocab] = useState<Vocabulary | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Multi-select State
+    const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showMultiDeleteConfirm, setShowMultiDeleteConfirm] = useState(false);
+    const [showGroupChangeDialog, setShowGroupChangeDialog] = useState(false);
+    const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
+
+    // Alert State
+    const [successAlert, setSuccessAlert] = useState<{ message: string } | null>(null);
+    const [errorAlert, setErrorAlert] = useState<{ message: string } | null>(null);
 
     // Initial Data Fetch
     const fetchProfile = async () => {
@@ -271,7 +284,7 @@ function ProfileContent() {
         if (!deletingVocab) return;
         setIsDeleting(true);
         try {
-            const res = await fetch(`/api/vocabulary/save?id=${deletingVocab._id}`, {
+            const res = await fetch(`/api/vocabulary/${deletingVocab._id}`, {
                 method: "DELETE",
             });
             const data = await res.json();
@@ -283,6 +296,109 @@ function ProfileContent() {
             console.error("Error deleting vocab:", error);
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    // Multi-select handlers
+    const toggleSelectVocab = (id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === paginatedVocabularies.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(paginatedVocabularies.map(v => v._id)));
+        }
+    };
+
+    const toggleMultiSelectMode = () => {
+        setIsMultiSelectMode(prev => {
+            if (prev) {
+                // Turning off - clear selections
+                setSelectedIds(new Set());
+            }
+            return !prev;
+        });
+    };
+
+    const handleMultiDelete = async () => {
+        if (selectedIds.size === 0) return;
+        setIsDeleting(true);
+        try {
+            const res = await fetch("/api/vocabulary/bulk-delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: Array.from(selectedIds) }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setVocabularies(prev => prev.filter(v => !selectedIds.has(v._id)));
+                setSelectedIds(new Set());
+                setShowMultiDeleteConfirm(false);
+                setSuccessAlert({ message: `${data.deletedCount} word(s) deleted successfully!` });
+            } else {
+                setErrorAlert({ message: data.error || 'Failed to delete vocabularies' });
+            }
+        } catch (error) {
+            console.error("Error bulk deleting vocab:", error);
+            setErrorAlert({ message: 'Failed to delete vocabularies' });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleChangeGroup = async (targetGroupId: string) => {
+        if (selectedIds.size === 0) return;
+
+        // Filter out vocabs that are already in the target group
+        const selectedVocabs = vocabularies.filter(v => selectedIds.has(v._id));
+        const vocabsToUpdate = selectedVocabs.filter(v => v.groupId !== targetGroupId);
+
+        if (vocabsToUpdate.length === 0) {
+            setErrorAlert({ message: 'All selected words are already in the target group' });
+            setShowGroupChangeDialog(false);
+            return;
+        }
+
+        setIsUpdatingGroup(true);
+        try {
+            const res = await fetch("/api/vocabulary/bulk-update-group", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ids: vocabsToUpdate.map(v => v._id),
+                    groupId: targetGroupId
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Update local state
+                setVocabularies(prev => prev.map(v => {
+                    if (vocabsToUpdate.some(vu => vu._id === v._id)) {
+                        return { ...v, groupId: targetGroupId };
+                    }
+                    return v;
+                }));
+                setSelectedIds(new Set());
+                setShowGroupChangeDialog(false);
+                setSuccessAlert({ message: `${data.modifiedCount} word(s) moved successfully!` });
+            } else {
+                setErrorAlert({ message: data.error || 'Failed to update group' });
+            }
+        } catch (error) {
+            console.error("Error changing group:", error);
+            setErrorAlert({ message: 'Failed to update group' });
+        } finally {
+            setIsUpdatingGroup(false);
         }
     };
 
@@ -377,43 +493,49 @@ function ProfileContent() {
                                         Cancel
                                     </button>
                                 </div>
-
-                                <AvatarUploader
-                                    currentImage={editImage}
-                                    googleImage={profile?.googleImage}
-                                    onSave={async (base64) => setEditImage(base64)}
-                                    onRevert={async () => setEditImage(profile?.googleImage || "")}
-                                    isSaving={isSaving}
-                                />
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                                    <input
-                                        type="text"
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
-                                        placeholder="Enter your name"
+                                <div className="flex items-center">
+                                    {/* Left */}
+                                    <AvatarUploader
+                                        currentImage={editImage}
+                                        googleImage={profile?.googleImage}
+                                        onSave={async (base64) => setEditImage(base64)}
+                                        onRevert={async () => setEditImage(profile?.googleImage || "")}
+                                        isSaving={isSaving}
                                     />
+                                    {/* Right */}
+                                    <div className="w-full">
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                                            <input
+                                                type="text"
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                                placeholder="Enter your name"
+                                            />
+                                        </div>
+
+                                        {saveMessage && (
+                                            <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+                                                {saveMessage}
+                                            </p>
+                                        )}
+
+                                        <button
+                                            onClick={handleSaveProfile}
+                                            disabled={isSaving || editName === profile?.name}
+                                            className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isSaving ? "Saving..." : "Save Changes"}
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {saveMessage && (
-                                    <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-                                        {saveMessage}
-                                    </p>
-                                )}
 
-                                <button
-                                    onClick={handleSaveProfile}
-                                    disabled={isSaving}
-                                    className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                >
-                                    {isSaving ? "Saving..." : "Save Changes"}
-                                </button>
                             </div>
                         ) : (
                             // View Mode
-                            <div className="flex flex-col md:flex-row items-center gap-6">
+                            <div className="flex flex-col md:flex-row items-start gap-6">
                                 {/* Avatar */}
                                 <div className="flex-shrink-0">
                                     {profile?.image ? (
@@ -452,7 +574,7 @@ function ProfileContent() {
                                 {/* Settings Icon */}
                                 <button
                                     onClick={() => setIsEditing(true)}
-                                    className="p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
+                                    className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
                                 >
                                     <Settings size={20} className="text-gray-600" />
                                 </button>
@@ -462,17 +584,19 @@ function ProfileContent() {
 
                     {/* Right Part (30%) - Streak Card */}
                     <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl border border-orange-200 shadow-sm p-6 flex flex-col items-center justify-center">
-                        <motion.div
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ duration: 2, repeat: Infinity, repeatType: "loop" }}
-                            className="text-5xl mb-2"
-                        >
-                            🔥
-                        </motion.div>
-                        <div className="text-4xl font-extrabold text-orange-600">{stats?.currentStreak || 0}</div>
-                        <p className="text-sm font-semibold text-gray-700 mt-1">
-                            {(stats?.currentStreak || 0) === 1 ? "day streak" : "days streak"}
-                        </p>
+                        <div className="h-40 w-40 border-4 border-orange-300 rounded-full flex flex-col items-center justify-center">
+                            <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity, repeatType: "loop" }}
+                                className="text-5xl mb-2"
+                            >
+                                <Image src="/images/fire.png" alt="Fire" width={50} height={50} />
+                            </motion.div>
+                            <div className="text-4xl font-extrabold text-orange-600">{stats?.currentStreak || 0}</div>
+                            <p className="text-sm font-semibold text-gray-700 mt-1">
+                                {(stats?.currentStreak || 0) === 1 ? "day streak" : "days streak"}
+                            </p>
+                        </div>
                     </div>
                 </motion.div>
 
@@ -601,11 +725,75 @@ function ProfileContent() {
                                         </div>
                                     ) : (
                                         <>
+                                            {/* Selection Toolbar */}
+                                            <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-xl">
+                                                <div className="flex items-center gap-3">
+                                                    {/* Multi Select Toggle Button */}
+                                                    <button
+                                                        onClick={toggleMultiSelectMode}
+                                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isMultiSelectMode
+                                                            ? 'bg-blue-500 text-white'
+                                                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+                                                            }`}
+                                                    >
+                                                        <CheckSquare size={16} />
+                                                        {isMultiSelectMode ? 'Exit Select' : 'Multi Select'}
+                                                    </button>
+
+                                                    {/* Select All - Only show in multi-select mode */}
+                                                    {isMultiSelectMode && (
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedIds.size === paginatedVocabularies.length && paginatedVocabularies.length > 0}
+                                                                onChange={toggleSelectAll}
+                                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                            <span className="text-sm text-gray-600">
+                                                                {selectedIds.size === paginatedVocabularies.length && paginatedVocabularies.length > 0
+                                                                    ? "Deselect All"
+                                                                    : "Select All"}
+                                                            </span>
+                                                        </label>
+                                                    )}
+
+                                                    {/* Selected count */}
+                                                    {isMultiSelectMode && selectedIds.size > 0 && (
+                                                        <span className="text-sm text-blue-600 font-medium">
+                                                            {selectedIds.size} selected
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons - Only show when items selected */}
+                                                {isMultiSelectMode && selectedIds.size > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => setShowGroupChangeDialog(true)}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
+                                                        >
+                                                            <FolderEdit size={16} />
+                                                            Change Group
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setShowMultiDeleteConfirm(true)}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                                 {paginatedVocabularies.map((vocab) => (
                                                     <VocaCard
                                                         key={vocab._id}
                                                         vocabulary={vocab}
+                                                        isSelected={selectedIds.has(vocab._id)}
+                                                        showCheckbox={isMultiSelectMode}
+                                                        onSelect={() => toggleSelectVocab(vocab._id)}
                                                         onEdit={handleEditVocab}
                                                         onDelete={handleDeleteVocab}
                                                     />
@@ -659,6 +847,94 @@ function ProfileContent() {
                 isLoading={isDeleting}
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeletingVocab(null)}
+            />
+
+            {/* Multi-Delete Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={showMultiDeleteConfirm}
+                title="Delete Multiple Vocabulary"
+                message={`Are you sure you want to delete ${selectedIds.size} selected word${selectedIds.size > 1 ? 's' : ''}? This action cannot be undone.`}
+                confirmText={`Delete ${selectedIds.size} Word${selectedIds.size > 1 ? 's' : ''}`}
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isDeleting}
+                onConfirm={handleMultiDelete}
+                onCancel={() => setShowMultiDeleteConfirm(false)}
+            />
+
+            {/* Group Change Dialog */}
+            <AnimatePresence>
+                {showGroupChangeDialog && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+                        onClick={() => setShowGroupChangeDialog(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-gray-900">Change Group</h3>
+                                <button
+                                    onClick={() => setShowGroupChangeDialog(false)}
+                                    className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Move {selectedIds.size} selected word{selectedIds.size > 1 ? 's' : ''} to:
+                            </p>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {/* Groups */}
+                                {groups.map((group) => (
+                                    <button
+                                        key={group._id}
+                                        onClick={() => handleChangeGroup(group._id)}
+                                        disabled={isUpdatingGroup}
+                                        className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
+                                    >
+                                        <span className="font-medium text-gray-700">{group.name}</span>
+                                        {group.description && (
+                                            <span className="block text-xs text-gray-400 mt-0.5 truncate">{group.description}</span>
+                                        )}
+                                    </button>
+                                ))}
+                                {groups.length === 0 && (
+                                    <p className="text-sm text-gray-500 text-center py-4">No groups available. Create a group first.</p>
+                                )}
+                            </div>
+                            {isUpdatingGroup && (
+                                <div className="flex items-center justify-center gap-2 mt-4 text-sm text-gray-500">
+                                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                    Updating...
+                                </div>
+                            )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Success Alert */}
+            <SuccessAlert
+                isOpen={successAlert !== null}
+                message={successAlert?.message || ''}
+                duration={4}
+                onClose={() => setSuccessAlert(null)}
+            />
+
+            {/* Error Alert */}
+            <ErrorAlert
+                isOpen={errorAlert !== null}
+                message={errorAlert?.message || ''}
+                duration={4}
+                onClose={() => setErrorAlert(null)}
             />
         </div>
     );

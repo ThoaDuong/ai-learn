@@ -18,11 +18,14 @@ interface VocabularyData {
 
 interface VocaCardProps {
     vocabulary: VocabularyData;
+    isSelected?: boolean;
+    showCheckbox?: boolean;
+    onSelect?: () => void;
     onEdit: (vocab: VocabularyData) => void;
     onDelete: (vocab: VocabularyData) => void;
 }
 
-export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps) {
+export default function VocaCard({ vocabulary, isSelected, showCheckbox = false, onSelect, onEdit, onDelete }: VocaCardProps) {
     const [isFlipped, setIsFlipped] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -56,6 +59,13 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
         onDelete(vocabulary);
     };
 
+    const handleSelect = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onSelect) {
+            onSelect();
+        }
+    };
+
     const getLevelColor = (level?: string) => {
         switch (level?.toLowerCase()) {
             case 'a1':
@@ -77,7 +87,7 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
 
     return (
         <div
-            className="perspective-1000 cursor-pointer h-[220px]"
+            className={`perspective-1000 cursor-pointer h-[220px] ${isSelected ? 'ring-2 ring-blue-500 rounded-2xl' : ''}`}
             onClick={() => setIsFlipped(!isFlipped)}
         >
             <motion.div
@@ -92,17 +102,30 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                     style={{ backfaceVisibility: "hidden" }}
                 >
                     <div className="h-full p-5 rounded-2xl border border-gray-200 bg-white hover:border-blue-200 hover:shadow-lg transition-all">
-                        {/* Badges */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                            {vocabulary.level && (
-                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getLevelColor(vocabulary.level)}`}>
-                                    {vocabulary.level.toUpperCase()}
-                                </span>
-                            )}
-                            {vocabulary.partOfSpeech && (
-                                <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
-                                    {vocabulary.partOfSpeech}
-                                </span>
+                        {/* Badges & Selection Checkbox */}
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                            <div className={`flex flex-wrap items-center gap-2`}>
+                                {vocabulary.level && (
+                                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getLevelColor(vocabulary.level)}`}>
+                                        {vocabulary.level.toUpperCase()}
+                                    </span>
+                                )}
+                                {vocabulary.partOfSpeech && (
+                                    <span className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                                        {vocabulary.partOfSpeech}
+                                    </span>
+                                )}
+                            </div>
+
+                            {showCheckbox && onSelect && (
+                                <div className="w-fit" onClick={handleSelect}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected || false}
+                                        onChange={() => { }}
+                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                </div>
                             )}
                         </div>
 
@@ -171,33 +194,35 @@ export default function VocaCard({ vocabulary, onEdit, onDelete }: VocaCardProps
                     className="absolute inset-0 backface-hidden"
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                 >
-                    <div className="h-full overflow-y-auto p-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg transition-all">
-                        {/* Meaning */}
-                        <div className="mb-4">
-                            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                Meaning
-                            </h4>
-                            <p className="text-gray-800 leading-relaxed">
-                                {vocabulary.meaning}
-                            </p>
-                        </div>
-
-                        {/* Example */}
-                        {vocabulary.example && (
-                            <div className="bg-white/70 rounded-xl p-4 backdrop-blur-sm">
+                    <div className="h-full p-5 rounded-2xl border border-gray-200 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 hover:shadow-lg transition-all">
+                        <div className="h-full overflow-y-auto">
+                            {/* Meaning */}
+                            <div className="mb-4">
                                 <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                    Example
+                                    Meaning
                                 </h4>
-                                <p className="text-gray-700 italic mb-2">
-                                    &quot;{vocabulary.example}&quot;
+                                <p className="text-gray-800 leading-relaxed">
+                                    {vocabulary.meaning}
                                 </p>
-                                {vocabulary.exampleTranslation && (
-                                    <p className="text-sm text-gray-500">
-                                        {vocabulary.exampleTranslation}
-                                    </p>
-                                )}
                             </div>
-                        )}
+
+                            {/* Example */}
+                            {vocabulary.example && (
+                                <div className="bg-white/70 rounded-xl p-4 backdrop-blur-sm">
+                                    <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                        Example
+                                    </h4>
+                                    <p className="text-gray-700 italic mb-2">
+                                        &quot;{vocabulary.example}&quot;
+                                    </p>
+                                    {vocabulary.exampleTranslation && (
+                                        <p className="text-sm text-gray-500">
+                                            {vocabulary.exampleTranslation}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </motion.div>

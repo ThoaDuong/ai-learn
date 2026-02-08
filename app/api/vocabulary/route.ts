@@ -93,9 +93,14 @@ export async function POST(request: NextRequest) {
             createdAt: new Date(),
         });
 
+        // Get the group name for response
+        const group = await groupsCollection.findOne({ _id: finalGroupId });
+        const groupName = group?.name || "Ungrouped";
+
         return NextResponse.json({
             success: true,
             id: result.insertedId,
+            groupName,
             message: "Vocabulary saved successfully",
         });
     } catch (error) {
