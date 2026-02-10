@@ -1,14 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Flame, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useState, useMemo } from "react";
+import Image from "next/image";
+import { div } from "framer-motion/client";
 
 interface StreakCalendarProps {
     activeDates?: string[]; // ISO date strings (YYYY-MM-DD)
+    freezeDates?: string[]; // ISO date strings for freeze-protected days
 }
 
-export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps) {
+export default function StreakCalendar({ activeDates = [], freezeDates = [] }: StreakCalendarProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const today = new Date();
@@ -17,6 +20,10 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
     const activeDateSet = useMemo(() => {
         return new Set(activeDates.map(d => d.split('T')[0]));
     }, [activeDates]);
+
+    const freezeDateSet = useMemo(() => {
+        return new Set(freezeDates.map(d => d.split('T')[0]));
+    }, [freezeDates]);
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -74,7 +81,21 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
         return activeDateSet.has(dateStr);
     };
 
+    const isFreezeDay = (day: number) => {
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        return freezeDateSet.has(dateStr);
+    };
+
     const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // Determine cell style for a given day
+    const getDayCellClass = (day: number | null) => {
+        if (day === null) return "";
+        if (isToday(day)) return "bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold shadow-md";
+        if (isFreezeDay(day)) return "text-white font-bold";
+        if (isActiveDay(day)) return "text-white font-bold";
+        return "text-gray-700 hover:bg-gray-50";
+    };
 
     return (
         <motion.div
@@ -129,49 +150,50 @@ export default function StreakCalendar({ activeDates = [] }: StreakCalendarProps
                     <div
                         key={index}
                         className={`
-                            relative aspect-square flex items-center justify-center text-xs rounded-lg
+                            relative aspect-square flex items-center justify-center text-xs rounded-lg overflow-hidden
                             ${day === null ? "" : "cursor-default"}
-                            ${day && isToday(day)
-                                ? "bg-blue-600 text-white font-bold"
-                                : day && isActiveDay(day)
-                                    ? "bg-orange-100 text-orange-700 font-medium"
-                                    : day
-                                        ? "text-gray-700 hover:bg-gray-50"
-                                        : ""
-                            }
+                            ${getDayCellClass(day)}
                         `}
                     >
-                        {day}
-                        {/* Streak icon for active days */}
-                        {day && isActiveDay(day) && !isToday(day) && (
-                            <Flame
-                                size={14}
-                                className="absolute -top-1.5 -right-1.5 text-orange-500 fill-orange-500"
+                        {/* Fire background for streak days */}
+                        {day && isActiveDay(day) && !isFreezeDay(day) && !isToday(day) && (
+                            <Image
+                                src="/images/fire.png"
+                                alt=""
+                                fill
+                                className="object-cover"
+                                sizes="40px"
                             />
                         )}
-                        {/* Streak icon for today if active */}
-                        {day && isActiveDay(day) && isToday(day) && (
-                            <Flame
-                                size={14}
-                                className="absolute -top-1.5 -right-1.5 text-white fill-white"
+                        {/* Ice-cube background for freeze days */}
+                        {day && isFreezeDay(day) && !isToday(day) && (
+                            <Image
+                                src="/images/ice-cube.png"
+                                alt=""
+                                fill
+                                className="object-cover"
+                                sizes="40px"
                             />
                         )}
+                        {/* Day number on top */}
+                        <span className="relative z-10 drop-shadow-sm">{day}</span>
                     </div>
-
                 ))}
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-100 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-blue-600" />
+                    <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-500 to-purple-600" />
                     <span className="text-xs text-gray-500">Today</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-orange-100 relative">
-                        <Flame size={8} className="absolute -top-0.5 -right-0.5 text-orange-500" />
-                    </div>
-                    <span className="text-xs text-gray-500">Active</span>
+                    <Image src="/images/fire.png" alt="Streak" width={16} height={16} />
+                    <span className="text-xs text-gray-500">Streak</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <Image src="/images/ice-cube.png" alt="Freeze" width={16} height={16} />
+                    <span className="text-xs text-gray-500">Freeze</span>
                 </div>
             </div>
         </motion.div>

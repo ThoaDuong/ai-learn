@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, Calendar, Mail, Flame, User, Trash2, CheckSquare, FolderEdit, X } from "lucide-react";
+import { Settings, Calendar, Mail, Flame, User, Trash2, CheckSquare, FolderEdit, X, Snowflake, Box } from "lucide-react";
 import Header from "@/common/components/Header";
 import Footer from "@/common/components/Footer";
 import AuthButton from "@/common/components/AuthButton";
@@ -57,6 +57,8 @@ interface Stats {
     activeTime: number;
     currentStreak: number;
     activeDates?: string[];
+    freezeCount?: number;
+    freezeDates?: string[];
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -555,19 +557,47 @@ function ProfileContent() {
 
                                 {/* User Info */}
                                 <div className="flex-1 text-center md:text-left">
-                                    <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                        <User size={16} className="text-gray-400" />
+                                    <div className="grid gap-2" style={{ gridTemplateColumns: '28px 1fr' }}>
+                                        {/* Name */}
+                                        <div className="flex items-center justify-center">
+                                            <User size={18} className="text-gray-400" />
+                                        </div>
                                         <h2 className="text-xl font-bold text-gray-900">{profile?.name || "User"}</h2>
-                                    </div>
-                                    <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
-                                        <Mail size={14} className="text-gray-400" />
-                                        <p className="text-gray-500 text-sm">{profile?.email}</p>
-                                    </div>
-                                    <div className="flex items-center justify-center md:justify-start gap-2">
-                                        <Calendar size={14} className="text-gray-400" />
-                                        <p className="text-gray-500 text-sm">
+
+                                        {/* Email */}
+                                        <div className="flex items-center justify-center">
+                                            <Mail size={16} className="text-gray-400" />
+                                        </div>
+                                        <p className="text-gray-500 text-sm flex items-center">{profile?.email}</p>
+
+                                        {/* Join Date */}
+                                        <div className="flex items-center justify-center">
+                                            <Calendar size={16} className="text-gray-400" />
+                                        </div>
+                                        <p className="text-gray-500 text-sm flex items-center">
                                             Joined {stats?.joinDate ? new Date(stats.joinDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}
                                         </p>
+
+                                        {/* Freeze Count Display - ice cubes */}
+                                        <div className="flex items-center justify-center">
+                                            <Box size={18} className="text-gray-400" />
+
+                                            {/* <Image src="/images/ice-cube.png" alt="Freeze" width={18} height={18} /> */}
+                                        </div>
+                                        <div className="flex items-center">
+                                            <div className="flex items-center gap-1 justify-start flex-1">
+                                                {Array.from({ length: stats?.freezeCount ?? 5 }).map((_, i) => (
+                                                    <Image
+                                                        key={i}
+                                                        src="/images/ice-cube.png"
+                                                        alt="Freeze"
+                                                        width={22}
+                                                        height={22}
+                                                        className="drop-shadow-sm"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -667,7 +697,7 @@ function ProfileContent() {
                                 </div>
 
                                 {/* Right (30%) - Calendar */}
-                                <StreakCalendar activeDates={stats?.activeDates || []} />
+                                <StreakCalendar activeDates={stats?.activeDates || []} freezeDates={stats?.freezeDates || []} />
                             </div>
                         </motion.div>
                     ) : (
