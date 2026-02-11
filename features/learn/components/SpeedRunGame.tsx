@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer } from "lucide-re
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
+import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import Confetti from "./Confetti";
 import { useActivityTimer } from "../hooks/useActivityTimer";
 import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
@@ -45,6 +46,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     const { start, getMinutes } = useActivityTimer();
 
     const { playCorrect, playGameOverSad, playGameOverHappy } = useGameSounds();
+    const { speak: speakWord } = useSpeechSynthesis();
 
     // Start timer on mount
     useEffect(() => {
@@ -112,17 +114,6 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
     }, [vocabularies, gameKey]); // Re-shuffle when gameKey changes (on restart)
 
     const currentQuestion = questions[currentIndex];
-
-    // Speak word function
-    const speakWord = useCallback((word: string) => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel(); // Stop any current speech
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            window.speechSynthesis.speak(utterance);
-        }
-    }, []);
 
     // Auto-read word when question changes
     useEffect(() => {
@@ -429,7 +420,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                             whileTap={!showResult ? { scale: 0.97 } : {}}
                             onClick={() => handleAnswer(index)}
                             disabled={showResult}
-                            className={`p-4 rounded-2xl border-2 text-left transition-all ${bgClass} ${showResult ? 'cursor-default' : 'cursor-pointer'}`}
+                            className={`p-4 rounded-2xl border-2 text-left transition-colors backface-hidden ${bgClass} ${showResult ? 'cursor-default' : 'cursor-pointer'}`}
                         >
                             <div className="flex items-center justify-between">
                                 <span className={`font-medium ${showResult && isCorrectOption ? 'text-green-700' : showResult && isSelected && !isCorrect ? 'text-red-700' : 'text-gray-700'}`}>

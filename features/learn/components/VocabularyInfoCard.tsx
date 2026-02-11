@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Volume2 } from "lucide-react";
 import { Vocabulary } from "@/types";
+import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 
 interface VocabularyInfoCardProps {
     vocabulary: Vocabulary;
@@ -10,13 +11,10 @@ interface VocabularyInfoCardProps {
 }
 
 export default function VocabularyInfoCard({ vocabulary, onContinue }: VocabularyInfoCardProps) {
+    const { speak } = useSpeechSynthesis();
+
     const playAudio = () => {
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(vocabulary.word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            speechSynthesis.speak(utterance);
-        }
+        speak(vocabulary.word);
     };
 
     return (

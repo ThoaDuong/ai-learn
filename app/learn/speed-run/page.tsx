@@ -15,14 +15,21 @@ export default function SpeedRunPage() {
     const [gameStarted, setGameStarted] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSelectGroup = useCallback(async (groupId: string | null) => {
+    const handleSelectGroup = useCallback(async (groupId: string | null, levelInfo?: { level: string; box: number }) => {
         setLoading(true);
         setError(null);
 
         try {
-            const url = groupId
-                ? `/api/learn/vocabulary?groupId=${groupId}`
-                : '/api/learn/vocabulary';
+            let url: string;
+            if (levelInfo) {
+                url = `/api/learn/vocabulary?level=${levelInfo.level}&box=${levelInfo.box}`;
+            } else if (groupId) {
+                url = `/api/learn/vocabulary?groupId=${groupId}`;
+            } else {
+                setError("Please select a vocabulary set.");
+                setLoading(false);
+                return;
+            }
 
             const response = await fetch(url);
             const data = await response.json();

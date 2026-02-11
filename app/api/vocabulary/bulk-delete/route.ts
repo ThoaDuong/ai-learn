@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
         const db = await getDatabase();
         const usersCollection = db.collection("users");
-        const vocabularyCollection = db.collection("vocabularies");
+        const vocabularyCollection = db.collection("userVocabularies");
 
         const googleId = (session.user as { googleId?: string }).googleId;
         const user = await usersCollection.findOne({ googleId });

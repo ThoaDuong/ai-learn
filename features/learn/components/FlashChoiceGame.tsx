@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart } from "luci
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
+import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import Confetti from "./Confetti";
 import CloseConfirmDialog from "./CloseConfirmDialog";
 import { useActivityTimer } from "../hooks/useActivityTimer";
@@ -44,6 +45,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
     const { start, getMinutes } = useActivityTimer();
 
     const { playCorrect, playWrong, playGameOverSad, playGameOverHappy } = useGameSounds();
+    const { speak: speakWord } = useSpeechSynthesis();
 
     // Start timer on mount
     useEffect(() => {
@@ -66,17 +68,6 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
             console.error('Failed to save activity:', error);
         }
     };
-
-    // Speak word function
-    const speakWord = useCallback((word: string) => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            window.speechSynthesis.speak(utterance);
-        }
-    }, []);
 
     // Generate quiz questions with shuffled Vietnamese meaning options
     const questions: QuizQuestion[] = useMemo(() => {
@@ -473,7 +464,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                             whileTap={!showResult || !isCorrect ? { scale: 0.97 } : {}}
                             onClick={() => handleAnswer(index)}
                             disabled={showResult && isCorrect === true}
-                            className={`p-4 rounded-2xl border-2 text-left transition-all ${bgClass} ${showResult && isCorrect ? 'cursor-default' : 'cursor-pointer'}`}
+                            className={`p-4 rounded-2xl border-2 text-left transition-colors backface-hidden ${bgClass} ${showResult && isCorrect ? 'cursor-default' : 'cursor-pointer'}`}
                         >
                             <div className="flex items-center justify-between">
                                 <span className={`font-medium ${showResult && isCorrectOption && isCorrect ? 'text-green-700' : showResult && isSelected && !isCorrect ? 'text-red-700' : 'text-gray-700'}`}>

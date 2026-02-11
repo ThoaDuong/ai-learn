@@ -18,7 +18,7 @@ export const useGameSounds = () => {
         // Set volume
         [correctAudioRef, wrongAudioRef, gameOverSadRef, gameOverHappyRef].forEach(ref => {
             if (ref.current) {
-                ref.current.volume = 0.5;
+                ref.current.volume = 0.3;
             }
         });
     }, []);

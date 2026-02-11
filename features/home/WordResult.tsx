@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Volume2 } from "lucide-react";
 import { WordAnalysis } from "@/types";
+import { useSpeechSynthesis } from "@/features/learn/hooks/useSpeechSynthesis";
 import StreakCongratulationsDialog from "../learn/components/StreakCongratulationsDialog";
 import SuccessAlert from "@/common/components/SuccessAlert";
 
@@ -58,31 +59,13 @@ export default function WordResult({ data }: WordResultProps) {
         }
     }, [status, data.word]);
 
+    const { speak } = useSpeechSynthesis();
+
     const handleSpeak = () => {
-        if ('speechSynthesis' in window) {
-            // Cancel any ongoing speech
-            window.speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(data.word);
-            utterance.lang = 'en-US'; // American English
-            utterance.rate = 0.9; // Slightly slower for clarity
-
-            // Try to find an American English voice
-            const voices = window.speechSynthesis.getVoices();
-            const americanVoice = voices.find(voice =>
-                voice.lang === 'en-US' && voice.name.includes('Female')
-            ) || voices.find(voice => voice.lang === 'en-US') || voices[0];
-
-            if (americanVoice) {
-                utterance.voice = americanVoice;
-            }
-
-            utterance.onstart = () => setIsSpeaking(true);
-            utterance.onend = () => setIsSpeaking(false);
-            utterance.onerror = () => setIsSpeaking(false);
-
-            window.speechSynthesis.speak(utterance);
-        }
+        speak(data.word, {
+            onStart: () => setIsSpeaking(true),
+            onEnd: () => setIsSpeaking(false)
+        });
     };
 
     const saveWord = async (wordData: typeof data) => {

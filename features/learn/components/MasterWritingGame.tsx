@@ -9,6 +9,7 @@ import CloseConfirmDialog from "./CloseConfirmDialog";
 import { useActivityTimer } from "../hooks/useActivityTimer";
 import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
 import { useGameSounds } from "../hooks/useGameSounds";
+import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 
 interface MasterWritingGameProps {
     vocabularies: Vocabulary[];
@@ -37,6 +38,7 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
     const [newStreakValue, setNewStreakValue] = useState(0);
     const { start, getMinutes } = useActivityTimer();
     const { playCorrect, playWrong, playGameOverSad, playGameOverHappy } = useGameSounds();
+    const { speak: speakWord } = useSpeechSynthesis();
 
     // Start timer on mount
     useEffect(() => {
@@ -59,17 +61,6 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
             console.error('Failed to save activity:', error);
         }
     };
-
-    // Speak word function
-    const speakWord = useCallback((word: string) => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            window.speechSynthesis.speak(utterance);
-        }
-    }, []);
 
     // Shuffle vocabularies on start and when gameKey changes (restart)
     const shuffledVocabularies = useMemo(() => {
