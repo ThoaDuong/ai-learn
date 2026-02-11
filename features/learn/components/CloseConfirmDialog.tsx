@@ -58,7 +58,7 @@ export default function CloseConfirmDialog({ isOpen, onConfirm, onCancel }: Clos
                                     onClick={onConfirm}
                                     className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-medium"
                                 >
-                                    Cancel
+                                    Leave
                                 </motion.button>
                             </div>
                         </div>
