@@ -36,6 +36,10 @@ export const authOptions: NextAuthOptions = {
                             name: user.name,
                             image: user.image, // Initial image is Google image
                             googleImage: user.image, // Store Google image backup
+                            freezeCount: 5, // Default freeze count
+                            freezeDates: [], // Track freeze usage dates
+                            streak: 0, // Initial streak
+                            streakDates: [], // Track streak dates
                             createdAt: new Date(),
                             updatedAt: new Date(),
                         });

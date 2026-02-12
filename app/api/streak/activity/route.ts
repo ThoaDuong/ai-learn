@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
             if (score === undefined || score < 5) {
                 return NextResponse.json({ streakAwarded: false, message: "Score too low" });
             }
-        } else if (activityType !== 'word_save') {
+        } else if (activityType !== 'word_save' && activityType !== 'image_scan') {
             return NextResponse.json(
                 { error: "Invalid activity type" },
                 { status: 400 }

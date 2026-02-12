@@ -5,8 +5,8 @@ import { useSession, signIn } from "next-auth/react";
 import { Volume2 } from "lucide-react";
 import { WordAnalysis } from "@/types";
 import { useSpeechSynthesis } from "@/features/learn/hooks/useSpeechSynthesis";
-import StreakCongratulationsDialog from "../learn/components/StreakCongratulationsDialog";
 import SuccessAlert from "@/common/components/SuccessAlert";
+import { useStreak } from "@/common/contexts/StreakContext";
 
 interface WordResultProps {
     data: WordAnalysis;
@@ -36,9 +36,7 @@ export default function WordResult({ data }: WordResultProps) {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [successInfo, setSuccessInfo] = useState<SaveSuccessInfo | null>(null);
 
-    // Streak logic
-    const [showStreakDialog, setShowStreakDialog] = useState(false);
-    const [newStreakValue, setNewStreakValue] = useState(0);
+    const { checkStreak } = useStreak();
 
     // Check for pending word after login
     useEffect(() => {
@@ -98,21 +96,8 @@ export default function WordResult({ data }: WordResultProps) {
                     word: wordData.word
                 });
 
-                // Check streak
-                try {
-                    const streakRes = await fetch("/api/streak/activity", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ activityType: "word_save" }),
-                    });
-                    const streakData = await streakRes.json();
-                    if (streakData.streakAwarded) {
-                        setNewStreakValue(streakData.newStreak);
-                        setShowStreakDialog(true);
-                    }
-                } catch (e) {
-                    console.error("Failed to check streak:", e);
-                }
+                // Check streak using global context
+                await checkStreak("word_save");
             } else {
                 setSaveStatus("error");
                 setErrorMsg(result.error || "Save failed");
@@ -138,12 +123,6 @@ export default function WordResult({ data }: WordResultProps) {
 
     return (
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden relative">
-            <StreakCongratulationsDialog
-                isOpen={showStreakDialog}
-                newStreak={newStreakValue}
-                onClose={() => setShowStreakDialog(false)}
-            />
-
             {/* Success Alert Component */}
             <SuccessAlert
                 isOpen={successInfo !== null}

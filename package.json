@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "NODE_OPTIONS='--max-http-header-size=65536' next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "migrate:freeze": "pnpm tsx scripts/migrate-add-freeze.ts",
+    "test:freeze": "pnpm tsx scripts/test-freeze-logic.ts",
+    "restore:user": "pnpm tsx scripts/restore-user-data.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -28,7 +31,9 @@
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
