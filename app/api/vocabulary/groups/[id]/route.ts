@@ -183,3 +183,79 @@ export async function DELETE(
         );
     }
 }
+
+// PATCH: Set group as default
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
+        const { id } = await params;
+
+        if (!ObjectId.isValid(id)) {
+            return NextResponse.json(
+                { error: "Invalid group ID" },
+                { status: 400 }
+            );
+        }
+
+        const db = await getDatabase();
+        const usersCollection = db.collection("users");
+        const groupsCollection = db.collection("vocabularyGroups");
+
+        const googleId = (session.user as { googleId?: string }).googleId;
+        const user = await usersCollection.findOne({ googleId });
+
+        if (!user) {
+            return NextResponse.json(
+                { error: "User not found" },
+                { status: 404 }
+            );
+        }
+
+        // Check if group exists and belongs to user
+        const group = await groupsCollection.findOne({
+            _id: new ObjectId(id),
+            userId: user._id,
+        });
+
+        if (!group) {
+            return NextResponse.json(
+                { error: "Group not found" },
+                { status: 404 }
+            );
+        }
+
+        // Unset isDefault on all user's groups
+        await groupsCollection.updateMany(
+            { userId: user._id },
+            { $set: { isDefault: false } }
+        );
+
+        // Set target group as default
+        await groupsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { isDefault: true } }
+        );
+
+        return NextResponse.json({
+            success: true,
+            message: "Default group updated successfully",
+        });
+    } catch (error) {
+        console.error("Set default group error:", error);
+        return NextResponse.json(
+            { error: "Failed to set default group" },
+            { status: 500 }
+        );
+    }
+}

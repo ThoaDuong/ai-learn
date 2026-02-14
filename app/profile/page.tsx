@@ -256,6 +256,18 @@ function ProfileContent() {
         }
     };
 
+    const handleSetDefaultGroup = async (id: string) => {
+        const res = await fetch(`/api/vocabulary/groups/${id}`, {
+            method: "PATCH",
+        });
+        const data = await res.json();
+        if (data.success) {
+            fetchGroups();
+        } else {
+            throw new Error(data.error || "Failed to set default group");
+        }
+    };
+
     const handleEditVocab = (vocab: Vocabulary) => {
         setEditingVocab(vocab);
     };
@@ -855,6 +867,7 @@ function ProfileContent() {
                 onAddGroup={handleAddGroup}
                 onUpdateGroup={handleUpdateGroup}
                 onDeleteGroup={handleDeleteGroup}
+                onSetDefaultGroup={handleSetDefaultGroup}
             />
 
             {/* Edit Vocabulary Modal */}

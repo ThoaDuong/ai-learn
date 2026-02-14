@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart, Bookmark } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
@@ -27,6 +28,7 @@ const TOTAL_QUESTIONS = 50;
 const MAX_LIVES = 5;
 
 export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoiceGameProps) {
+    const { data: session } = useSession();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -37,6 +39,10 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
     const [showConfetti, setShowConfetti] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
     const [gameKey, setGameKey] = useState(0);
+
+    // Save word state
+    const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
+    const [savingWord, setSavingWord] = useState(false);
 
     // Streak & Timer logic
     const [hasShownStreakDialog, setHasShownStreakDialog] = useState(false);
@@ -190,6 +196,36 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
         setHasShownStreakDialog(false);
         setGameKey(prev => prev + 1);
         start();
+    };
+
+    const handleSaveWord = async () => {
+        if (!session || !currentQuestion || savingWord) return;
+        const vocab = currentQuestion.vocabulary;
+        if (savedWords.has(vocab.word)) return;
+
+        setSavingWord(true);
+        try {
+            const res = await fetch('/api/vocabulary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    word: vocab.word,
+                    meaning: vocab.meaning,
+                    partOfSpeech: vocab.partOfSpeech,
+                    level: vocab.level,
+                    phonetic: vocab.phonetic,
+                    example: vocab.example || '',
+                    exampleTranslation: vocab.exampleTranslation || '',
+                }),
+            });
+            if (res.ok || res.status === 409) {
+                setSavedWords(prev => new Set(prev).add(vocab.word));
+            }
+        } catch (error) {
+            console.error('Failed to save word:', error);
+        } finally {
+            setSavingWord(false);
+        }
     };
 
     const handleClose = () => {
@@ -430,13 +466,31 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                             <Volume2 className="w-5 h-5 text-amber-600" />
                         </motion.button>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-500">
-                        <span className="px-2 py-1 rounded-lg bg-gray-100 text-sm">
-                            {currentQuestion.vocabulary.partOfSpeech}
-                        </span>
-                        <span className="text-sm italic">
-                            {currentQuestion.vocabulary.phonetic}
-                        </span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span className="px-2 py-1 rounded-lg bg-gray-100 text-sm">
+                                {currentQuestion.vocabulary.partOfSpeech}
+                            </span>
+                            <span className="text-sm italic">
+                                {currentQuestion.vocabulary.phonetic}
+                            </span>
+                        </div>
+                        {session && (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleSaveWord}
+                                disabled={savingWord || savedWords.has(currentQuestion.vocabulary.word)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${savedWords.has(currentQuestion.vocabulary.word)
+                                        ? 'bg-green-100 text-green-700 cursor-default'
+                                        : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                                    } disabled:opacity-70`}
+                                type="button"
+                            >
+                                <Bookmark size={14} className={savedWords.has(currentQuestion.vocabulary.word) ? 'fill-green-600' : ''} />
+                                {savingWord ? 'Saving...' : savedWords.has(currentQuestion.vocabulary.word) ? 'Saved' : 'Save'}
+                            </motion.button>
+                        )}
                     </div>
                 </motion.div>
             </AnimatePresence>

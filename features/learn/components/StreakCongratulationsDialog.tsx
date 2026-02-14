@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Flame, X } from "lucide-react";
 import Confetti from "./Confetti";
 import { useGameSounds } from "../hooks/useGameSounds";
+import Image from "next/image";
 
 interface StreakCongratulationsDialogProps {
     isOpen: boolean;
@@ -57,7 +58,7 @@ export default function StreakCongratulationsDialog({
                                     transition={{ delay: 0.2, duration: 0.5 }}
                                     className="w-32 h-32 bg-orange-100 rounded-full flex items-center justify-center mb-6 relative"
                                 >
-                                    <Flame className="w-20 h-20 text-orange-500 fill-orange-500 animate-pulse" />
+                                    <Image src="/images/fire.png" className="w-20 h-20 animate-pulse" alt="Streak" width={100} height={100} />
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -83,7 +84,7 @@ export default function StreakCongratulationsDialog({
                                     transition={{ delay: 0.6 }}
                                     className="text-lg text-gray-600 font-medium"
                                 >
-                                    {newStreak} day streak! Amazing! 🔥
+                                    {newStreak} day streak! Amazing!
                                 </motion.p>
 
                                 <motion.p
