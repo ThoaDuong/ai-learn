@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
 interface ActivityData {
     day: string;
-    hours: number;
+    minutes: number;
     fullDate?: string;
 }
 
@@ -15,39 +15,38 @@ interface ActivityChartProps {
     data?: ActivityData[]; // Made optional as we fetch internally
 }
 
-// Format hours to display as 15p, 30p, 45p, 1h, 1h15p, etc.
-const formatTimeLabel = (hours: number): string => {
-    if (hours === 0) return "0";
+// Format minutes to display as 15m, 30m, 45m, 1h, 1h15m, etc.
+const formatTimeLabel = (minutes: number): string => {
+    if (minutes === 0) return "0";
 
-    const totalMinutes = Math.round(hours * 60);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
 
     if (h === 0) {
-        return `${m}p`;
+        return `${m}m`;
     } else if (m === 0) {
         return `${h}h`;
     } else {
-        return `${h}h${m}p`;
+        return `${h}h${m}m`;
     }
 };
 
 // Generate appropriate Y-axis ticks based on max value
-const generateTicks = (maxHours: number): number[] => {
-    if (maxHours <= 0.25) {
-        // Up to 15 minutes: show 5p, 10p, 15p
-        return [0, 0.083, 0.167, 0.25];
-    } else if (maxHours <= 1) {
-        // Up to 1 hour: show 15p, 30p, 45p, 1h
-        return [0, 0.25, 0.5, 0.75, 1];
-    } else if (maxHours <= 2) {
-        // Up to 2 hours: show 30p, 1h, 1h30p, 2h
-        return [0, 0.5, 1, 1.5, 2];
+const generateTicks = (maxMinutes: number): number[] => {
+    if (maxMinutes <= 15) {
+        // Up to 15 minutes: show 5m, 10m, 15m
+        return [0, 5, 10, 15];
+    } else if (maxMinutes <= 60) {
+        // Up to 1 hour: show 15m, 30m, 45m, 1h
+        return [0, 15, 30, 45, 60];
+    } else if (maxMinutes <= 120) {
+        // Up to 2 hours: show 30m, 1h, 1h30m, 2h
+        return [0, 30, 60, 90, 120];
     } else {
         // More than 2 hours: show 1h increments
-        const maxTick = Math.ceil(maxHours);
+        const maxTick = Math.ceil(maxMinutes / 60) * 60;
         const ticks = [];
-        for (let i = 0; i <= maxTick; i++) {
+        for (let i = 0; i <= maxTick; i += 60) {
             ticks.push(i);
         }
         return ticks;
@@ -135,9 +134,9 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
         "#3b82f6",
     ];
 
-    // Calculate max hours for tick generation
-    const maxHours = Math.max(...(chartData?.map(d => d.hours) || []), 0.25);
-    const ticks = generateTicks(maxHours);
+    // Calculate max minutes for tick generation
+    const maxMinutes = Math.max(...(chartData?.map(d => d.minutes) || []), 15);
+    const ticks = generateTicks(maxMinutes);
 
     return (
         <motion.div
@@ -232,7 +231,7 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                             }}
                         />
                         <Bar
-                            dataKey="hours"
+                            dataKey="minutes"
                             radius={[8, 8, 0, 0]}
                             maxBarSize={60}
                         >

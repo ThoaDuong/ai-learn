@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, ChevronDown, ChevronRight, Lock, BookOpen, Package } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Lock, BookOpen, Package, CheckCircle, BookOpenCheck } from "lucide-react";
 import Link from "next/link";
 
 interface LevelInfo {
@@ -18,8 +18,15 @@ interface VocabularyGroup {
     wordCount: number;
 }
 
+interface CompletedBox {
+    level: string;
+    box: number;
+    gameMode: string;
+}
+
 interface GroupSelectorProps {
     onSelectGroup: (groupId: string | null, levelInfo?: { level: string; box: number }) => void;
+    gameMode?: string;
     minWords?: number;
 }
 
@@ -44,13 +51,14 @@ const levelConfig: Record<string, { gradient: string; shadow: string; bgGlow: st
     }
 };
 
-export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSelectorProps) {
+export default function GroupSelector({ onSelectGroup, gameMode, minWords = 4 }: GroupSelectorProps) {
     const { data: session, status } = useSession();
     const [levels, setLevels] = useState<LevelInfo[]>([]);
     const [groups, setGroups] = useState<VocabularyGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
     const [selectedMode, setSelectedMode] = useState<string | null>(null);
+    const [completedBoxes, setCompletedBoxes] = useState<CompletedBox[]>([]);
 
     // Fetch level stats
     useEffect(() => {
@@ -87,6 +95,27 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
     useEffect(() => {
         fetchGroups();
     }, [fetchGroups]);
+
+    // Fetch completed progress
+    useEffect(() => {
+        const fetchProgress = async () => {
+            if (status !== "authenticated" || !gameMode) return;
+            try {
+                const response = await fetch(`/api/learn/progress?gameMode=${gameMode}`);
+                const data = await response.json();
+                if (data.completed) {
+                    setCompletedBoxes(data.completed);
+                }
+            } catch (error) {
+                console.error("Error fetching progress:", error);
+            }
+        };
+        fetchProgress();
+    }, [status, gameMode]);
+
+    const isBoxCompleted = (level: string, box: number) => {
+        return completedBoxes.some(c => c.level === level && c.box === box);
+    };
 
     const handleToggleLevel = (level: string) => {
         setExpandedLevel(prev => prev === level ? null : level);
@@ -183,6 +212,7 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                                                     const wordsInBox = boxNum === levelInfo.boxes
                                                         ? levelInfo.total - (levelInfo.boxes - 1) * BOX_SIZE
                                                         : BOX_SIZE;
+                                                    const completed = isBoxCompleted(levelInfo.level, boxNum);
 
                                                     return (
                                                         <motion.button
@@ -193,25 +223,59 @@ export default function GroupSelector({ onSelectGroup, minWords = 4 }: GroupSele
                                                             whileHover={{ scale: 1.03, y: -2 }}
                                                             whileTap={{ scale: 0.97 }}
                                                             onClick={() => handleSelectBox(levelInfo.level, boxNum)}
-                                                            className="p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-gray-400 transition-all shadow-sm hover:shadow-md text-left cursor-pointer group"
+                                                            className={`p-3 rounded-xl border-2 transition-all shadow-sm hover:shadow-md text-left cursor-pointer group ${completed
+                                                                ? 'bg-gray-50 border-gray-200 opacity-60'
+                                                                : 'bg-white border-gray-200 hover:border-gray-400'
+                                                                }`}
                                                         >
                                                             <div className="flex items-center gap-2">
-                                                                <div className={`w-8 h-8 rounded-lg ${config.bgGlow} flex items-center justify-center`}>
-                                                                    <Package size={14} className="text-gray-600" />
+                                                                <div className={`w-8 h-8 rounded-lg ${completed ? 'bg-green-100' : config.bgGlow} flex items-center justify-center`}>
+                                                                    {completed ? (
+                                                                        <CheckCircle size={14} className="text-green-600" />
+                                                                    ) : (
+                                                                        <Package size={14} className="text-gray-600" />
+                                                                    )}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-semibold text-gray-800 text-sm">Box {boxNum}</p>
+                                                                    <p className={`font-semibold text-sm ${completed ? 'text-gray-500' : 'text-gray-800'}`}>Box {boxNum}</p>
                                                                     <p className="text-gray-500 text-xs">{wordsInBox} words</p>
                                                                 </div>
                                                             </div>
                                                             <ChevronRight
                                                                 size={14}
-                                                                className="text-gray-300 group-hover:text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                                                                className="text-gray-300 group-hover:text-gray-500 transition-colors"
                                                                 style={{ position: "relative", float: "right", marginTop: "-20px" }}
                                                             />
                                                         </motion.button>
                                                     );
                                                 })}
+
+                                                {/* Review Box */}
+                                                <motion.button
+                                                    key="review"
+                                                    initial={{ opacity: 0, y: -10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ delay: levelInfo.boxes * 0.03 }}
+                                                    whileHover={{ scale: 1.03, y: -2 }}
+                                                    whileTap={{ scale: 0.97 }}
+                                                    onClick={() => handleSelectBox(levelInfo.level, 0)}
+                                                    className="p-3 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 hover:border-indigo-400 transition-all shadow-sm hover:shadow-md text-left cursor-pointer group col-span-2 sm:col-span-3"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                                            <BookOpenCheck size={14} className="text-indigo-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-indigo-700 text-sm">📝 Review All</p>
+                                                            <p className="text-indigo-500 text-xs">{levelInfo.total} words</p>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight
+                                                        size={14}
+                                                        className="text-indigo-300 group-hover:text-indigo-500 transition-colors"
+                                                        style={{ position: "relative", float: "right", marginTop: "-20px" }}
+                                                    />
+                                                </motion.button>
                                             </div>
                                         </motion.div>
                                     )}

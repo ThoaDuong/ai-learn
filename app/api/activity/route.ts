@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
             activity.push({
                 day: days[i],
                 fullDate: dateStr, // useful for tooltips if needed
-                hours: dayLog ? Number((dayLog.minutes / 60).toFixed(1)) : 0,
+                minutes: dayLog ? dayLog.minutes : 0,
             });
         }
 

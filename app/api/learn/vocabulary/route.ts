@@ -7,6 +7,7 @@ import { ObjectId } from "mongodb";
 // Admin user ID for seeded vocabulary (B1/B2/C1)
 const ADMIN_USER_ID = new ObjectId("000000000000000000000001");
 const BOX_SIZE = 50;
+const MIN_LAST_BOX = 6; // If last box has fewer words, merge into previous box
 
 export async function GET(request: NextRequest) {
     try {
@@ -58,6 +59,34 @@ export async function GET(request: NextRequest) {
 
         // Mode 2: Level + Box — return specific box of words from a level
         if (level && box) {
+            // Review mode: return ALL words for the level
+            if (box === "review") {
+                const vocabularies = await vocabularyCollection
+                    .find({
+                        userId: ADMIN_USER_ID,
+                        level: level.toUpperCase()
+                    })
+                    .sort({ word: 1 })
+                    .toArray();
+
+                if (vocabularies.length === 0) {
+                    return NextResponse.json(
+                        { error: "No vocabulary found for this level" },
+                        { status: 404 }
+                    );
+                }
+
+                const shuffled = vocabularies.sort(() => Math.random() - 0.5);
+
+                return NextResponse.json({
+                    vocabularies: shuffled,
+                    mode: "level",
+                    level: level.toUpperCase(),
+                    box: "review",
+                    total: shuffled.length
+                });
+            }
+
             const boxNum = parseInt(box);
             if (isNaN(boxNum) || boxNum < 1) {
                 return NextResponse.json(
@@ -66,7 +95,29 @@ export async function GET(request: NextRequest) {
                 );
             }
 
+            // Count total words to determine actual box count (with merging)
+            const totalWords = await vocabularyCollection.countDocuments({
+                userId: ADMIN_USER_ID,
+                level: level.toUpperCase()
+            });
+
+            const remainder = totalWords % BOX_SIZE;
+            const actualBoxes = (remainder > 0 && remainder < MIN_LAST_BOX)
+                ? Math.floor(totalWords / BOX_SIZE)
+                : Math.ceil(totalWords / BOX_SIZE);
+
+            if (boxNum > actualBoxes) {
+                return NextResponse.json(
+                    { error: "Box number exceeds available boxes" },
+                    { status: 404 }
+                );
+            }
+
             const skip = (boxNum - 1) * BOX_SIZE;
+            // Last box may include extra words if merged
+            const limit = boxNum === actualBoxes
+                ? totalWords - skip
+                : BOX_SIZE;
 
             const vocabularies = await vocabularyCollection
                 .find({
@@ -75,7 +126,7 @@ export async function GET(request: NextRequest) {
                 })
                 .sort({ word: 1 }) // Alphabetical order for consistent boxes
                 .skip(skip)
-                .limit(BOX_SIZE)
+                .limit(limit)
                 .toArray();
 
             if (vocabularies.length === 0) {
@@ -105,10 +156,14 @@ export async function GET(request: NextRequest) {
                     userId: ADMIN_USER_ID,
                     level: lvl
                 });
+                const remainder = total % BOX_SIZE;
+                const boxes = (remainder > 0 && remainder < MIN_LAST_BOX)
+                    ? Math.floor(total / BOX_SIZE)
+                    : Math.ceil(total / BOX_SIZE);
                 return {
                     level: lvl,
                     total,
-                    boxes: Math.ceil(total / BOX_SIZE)
+                    boxes
                 };
             })
         );

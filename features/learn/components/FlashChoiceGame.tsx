@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart, Bookmark } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart, Bookmark, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Vocabulary } from "@/types";
@@ -16,6 +16,8 @@ import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
 interface FlashChoiceGameProps {
     vocabularies: Vocabulary[];
     onComplete: () => void;
+    levelInfo?: { level: string; box: number; totalBoxes: number };
+    onNext?: () => void;
 }
 
 interface QuizQuestion {
@@ -24,10 +26,9 @@ interface QuizQuestion {
     correctIndex: number;
 }
 
-const TOTAL_QUESTIONS = 50;
 const MAX_LIVES = 5;
 
-export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoiceGameProps) {
+export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, onNext }: FlashChoiceGameProps) {
     const { data: session } = useSession();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -46,6 +47,8 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
 
     // Streak & Timer logic
     const [hasShownStreakDialog, setHasShownStreakDialog] = useState(false);
+
+    const TOTAL_QUESTIONS = vocabularies.length;
     const [showStreakDialog, setShowStreakDialog] = useState(false);
     const [newStreakValue, setNewStreakValue] = useState(0);
     const { start, getMinutes } = useActivityTimer();
@@ -127,6 +130,23 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
         }
     };
 
+    const saveProgress = async () => {
+        if (!levelInfo || levelInfo.box === 0) return; // Don't save review progress
+        try {
+            await fetch('/api/learn/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: levelInfo.level,
+                    box: levelInfo.box,
+                    gameMode: 'flash-choice'
+                })
+            });
+        } catch (error) {
+            console.error('Failed to save progress:', error);
+        }
+    };
+
     const handleAnswer = useCallback((optionIndex: number) => {
         if (selectedAnswer !== null) return; // Already answered, wait for reset
 
@@ -146,6 +166,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
             if (newCorrectCount >= TOTAL_QUESTIONS) {
                 setShowConfetti(true);
                 playGameOverHappy();
+                saveProgress();
                 setTimeout(() => {
                     setIsComplete(true);
                 }, 500);
@@ -348,8 +369,18 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center"
+                    className="text-center relative"
                 >
+                    {/* Close button */}
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={onComplete}
+                        className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                    >
+                        <X size={20} className="text-red-500" />
+                    </motion.button>
+
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -383,7 +414,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                         <p className="text-2xl font-bold mt-2 text-gray-700">{percentage}%</p>
                     </div>
 
-                    <div className="flex gap-4 justify-center">
+                    <div className="flex gap-3 justify-center flex-wrap">
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -393,15 +424,17 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                             <RotateCcw size={18} />
                             Play Again
                         </motion.button>
-                        <Link href="/learn">
+                        {isFullCompletion && onNext && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium"
+                                onClick={onNext}
+                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium flex items-center gap-2 shadow-lg"
                             >
-                                Other Modes
+                                Next Box
+                                <ChevronRight size={18} />
                             </motion.button>
-                        </Link>
+                        )}
                     </div>
                 </motion.div>
             </>
@@ -482,8 +515,8 @@ export default function FlashChoiceGame({ vocabularies, onComplete }: FlashChoic
                                 onClick={handleSaveWord}
                                 disabled={savingWord || savedWords.has(currentQuestion.vocabulary.word)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${savedWords.has(currentQuestion.vocabulary.word)
-                                        ? 'bg-green-100 text-green-700 cursor-default'
-                                        : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                                    ? 'bg-green-100 text-green-700 cursor-default'
+                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
                                     } disabled:opacity-70`}
                                 type="button"
                             >

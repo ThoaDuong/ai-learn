@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PenLine } from "lucide-react";
 import Header from "@/common/components/Header";
@@ -9,54 +9,124 @@ import GroupSelector from "@/features/learn/components/GroupSelector";
 import MasterWritingGame from "@/features/learn/components/MasterWritingGame";
 import { Vocabulary } from "@/types";
 
+const LEVEL_ORDER = ["B1", "B2", "C1"];
+
+interface LevelStat {
+    level: string;
+    total: number;
+    boxes: number;
+}
+
 export default function MasterWritingPage() {
     const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
     const [loading, setLoading] = useState(false);
     const [gameStarted, setGameStarted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [currentLevelInfo, setCurrentLevelInfo] = useState<{ level: string; box: number } | null>(null);
+    const [levelStats, setLevelStats] = useState<LevelStat[]>([]);
 
-    const handleSelectGroup = useCallback(async (groupId: string | null, levelInfo?: { level: string; box: number }) => {
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await fetch("/api/learn/vocabulary");
+                const data = await res.json();
+                if (data.levels) setLevelStats(data.levels);
+            } catch { }
+        };
+        fetchStats();
+    }, []);
+
+    const loadVocabulary = useCallback(async (level: string, box: number | string) => {
         setLoading(true);
         setError(null);
-
         try {
-            let url: string;
-            if (levelInfo) {
-                url = `/api/learn/vocabulary?level=${levelInfo.level}&box=${levelInfo.box}`;
-            } else if (groupId) {
-                url = `/api/learn/vocabulary?groupId=${groupId}`;
-            } else {
-                setError("Please select a vocabulary set.");
-                setLoading(false);
-                return;
-            }
-
+            const url = `/api/learn/vocabulary?level=${level}&box=${box}`;
             const response = await fetch(url);
             const data = await response.json();
 
-            if (data.error) {
-                setError(data.error);
-                return;
-            }
-
-            if (data.vocabularies.length < 1) {
-                setError("No vocabulary available to learn yet.");
-                return;
-            }
+            if (data.error) { setError(data.error); return; }
+            if (data.vocabularies.length < 1) { setError("No vocabulary available to learn yet."); return; }
 
             setVocabularies(data.vocabularies);
             setGameStarted(true);
-        } catch (err) {
+        } catch {
             setError("Unable to load vocabulary. Please try again.");
         } finally {
             setLoading(false);
         }
     }, []);
 
+    const handleSelectGroup = useCallback(async (groupId: string | null, levelInfo?: { level: string; box: number }) => {
+        if (levelInfo) {
+            setCurrentLevelInfo(levelInfo);
+            const boxParam = levelInfo.box === 0 ? "review" : levelInfo.box;
+            await loadVocabulary(levelInfo.level, boxParam);
+        } else if (groupId) {
+            setCurrentLevelInfo(null);
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`/api/learn/vocabulary?groupId=${groupId}`);
+                const data = await response.json();
+                if (data.error) { setError(data.error); return; }
+                if (data.vocabularies.length < 1) { setError("No vocabulary available to learn yet."); return; }
+                setVocabularies(data.vocabularies);
+                setGameStarted(true);
+            } catch {
+                setError("Unable to load vocabulary. Please try again.");
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setError("Please select a vocabulary set.");
+        }
+    }, [loadVocabulary]);
+
     const handleComplete = () => {
         setGameStarted(false);
         setVocabularies([]);
+        setCurrentLevelInfo(null);
     };
+
+    const handleNext = useCallback(() => {
+        if (!currentLevelInfo) return;
+        const { level, box } = currentLevelInfo;
+        if (box === 0) return;
+
+        const currentStat = levelStats.find(l => l.level === level);
+        if (!currentStat) return;
+
+        let nextLevel = level;
+        let nextBox = box + 1;
+
+        if (nextBox > currentStat.boxes) {
+            const currentLevelIndex = LEVEL_ORDER.indexOf(level);
+            if (currentLevelIndex < LEVEL_ORDER.length - 1) {
+                nextLevel = LEVEL_ORDER[currentLevelIndex + 1];
+                nextBox = 1;
+            } else {
+                return;
+            }
+        }
+
+        setCurrentLevelInfo({ level: nextLevel, box: nextBox });
+        setGameStarted(false);
+        setVocabularies([]);
+        loadVocabulary(nextLevel, nextBox);
+    }, [currentLevelInfo, levelStats, loadVocabulary]);
+
+    const currentTotalBoxes = currentLevelInfo
+        ? (levelStats.find(l => l.level === currentLevelInfo.level)?.boxes ?? 0)
+        : 0;
+
+    const hasNext = (() => {
+        if (!currentLevelInfo || currentLevelInfo.box === 0) return false;
+        const currentStat = levelStats.find(l => l.level === currentLevelInfo.level);
+        if (!currentStat) return false;
+        if (currentLevelInfo.box < currentStat.boxes) return true;
+        const idx = LEVEL_ORDER.indexOf(currentLevelInfo.level);
+        return idx < LEVEL_ORDER.length - 1;
+    })();
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -64,7 +134,6 @@ export default function MasterWritingPage() {
 
             <main className="flex-1 py-8 px-4">
                 <div className="max-w-7xl mx-auto">
-                    {/* Header */}
                     <motion.div
                         className="text-center mb-8"
                         initial={{ opacity: 0, y: -20 }}
@@ -82,7 +151,6 @@ export default function MasterWritingPage() {
                         </p>
                     </motion.div>
 
-                    {/* Game Area */}
                     <div className="flex justify-center">
                         {loading ? (
                             <motion.div
@@ -114,9 +182,11 @@ export default function MasterWritingPage() {
                             <MasterWritingGame
                                 vocabularies={vocabularies}
                                 onComplete={handleComplete}
+                                levelInfo={currentLevelInfo ? { ...currentLevelInfo, totalBoxes: currentTotalBoxes } : undefined}
+                                onNext={hasNext ? handleNext : undefined}
                             />
                         ) : (
-                            <GroupSelector onSelectGroup={handleSelectGroup} />
+                            <GroupSelector onSelectGroup={handleSelectGroup} gameMode="master-writing" />
                         )}
                     </div>
                 </div>

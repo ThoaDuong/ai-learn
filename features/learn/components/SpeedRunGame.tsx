@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
@@ -14,6 +14,8 @@ import StreakCongratulationsDialog from "./StreakCongratulationsDialog";
 interface SpeedRunGameProps {
     vocabularies: Vocabulary[];
     onComplete: () => void;
+    levelInfo?: { level: string; box: number; totalBoxes: number };
+    onNext?: () => void;
 }
 
 interface QuizQuestion {
@@ -25,7 +27,7 @@ interface QuizQuestion {
 const TIMER_DURATION = 5000; // 5 seconds
 const WIN_THRESHOLD = 20; // Score threshold for win celebration
 
-export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameProps) {
+export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNext }: SpeedRunGameProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -85,6 +87,23 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
             }
         } catch (error) {
             console.error('Failed to check streak:', error);
+        }
+    };
+
+    const saveProgress = async () => {
+        if (!levelInfo || levelInfo.box === 0) return;
+        try {
+            await fetch('/api/learn/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: levelInfo.level,
+                    box: levelInfo.box,
+                    gameMode: 'speed-run'
+                })
+            });
+        } catch (error) {
+            console.error('Failed to save progress:', error);
         }
     };
 
@@ -198,6 +217,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                     setIsAnswering(false);
                 } else {
                     // Completed all questions!
+                    saveProgress();
                     setIsGameOver(true);
                 }
             }, 500);
@@ -245,8 +265,18 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center"
+                    className="text-center relative"
                 >
+                    {/* Close button */}
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={onComplete}
+                        className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                    >
+                        <X size={20} className="text-red-500" />
+                    </motion.button>
+
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -323,7 +353,7 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                         </div>
                     )}
 
-                    <div className="flex gap-4 justify-center">
+                    <div className="flex gap-3 justify-center flex-wrap">
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -333,15 +363,17 @@ export default function SpeedRunGame({ vocabularies, onComplete }: SpeedRunGameP
                             <RotateCcw size={18} />
                             Play Again
                         </motion.button>
-                        <Link href="/learn">
+                        {isAllCorrect && onNext && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium"
+                                onClick={onNext}
+                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium flex items-center gap-2 shadow-lg"
                             >
-                                Back
+                                Next Box
+                                <ChevronRight size={18} />
                             </motion.button>
-                        </Link>
+                        )}
                     </div>
                 </motion.div>
             </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Zap } from "lucide-react";
 import Header from "@/common/components/Header";
@@ -9,28 +9,39 @@ import GroupSelector from "@/features/learn/components/GroupSelector";
 import FlashChoiceGame from "@/features/learn/components/FlashChoiceGame";
 import { Vocabulary } from "@/types";
 
+const LEVEL_ORDER = ["B1", "B2", "C1"];
+
+interface LevelStat {
+    level: string;
+    total: number;
+    boxes: number;
+}
+
 export default function FlashChoicePage() {
     const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
     const [loading, setLoading] = useState(false);
     const [gameStarted, setGameStarted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [currentLevelInfo, setCurrentLevelInfo] = useState<{ level: string; box: number } | null>(null);
+    const [levelStats, setLevelStats] = useState<LevelStat[]>([]);
 
-    const handleSelectGroup = useCallback(async (groupId: string | null, levelInfo?: { level: string; box: number }) => {
+    // Fetch level stats for next-box navigation
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await fetch("/api/learn/vocabulary");
+                const data = await res.json();
+                if (data.levels) setLevelStats(data.levels);
+            } catch { }
+        };
+        fetchStats();
+    }, []);
+
+    const loadVocabulary = useCallback(async (level: string, box: number | string) => {
         setLoading(true);
         setError(null);
-
         try {
-            let url: string;
-            if (levelInfo) {
-                url = `/api/learn/vocabulary?level=${levelInfo.level}&box=${levelInfo.box}`;
-            } else if (groupId) {
-                url = `/api/learn/vocabulary?groupId=${groupId}`;
-            } else {
-                setError("Please select a vocabulary set.");
-                setLoading(false);
-                return;
-            }
-
+            const url = `/api/learn/vocabulary?level=${level}&box=${box}`;
             const response = await fetch(url);
             const data = await response.json();
 
@@ -46,17 +57,92 @@ export default function FlashChoicePage() {
 
             setVocabularies(data.vocabularies);
             setGameStarted(true);
-        } catch (err) {
+        } catch {
             setError("Unable to load vocabulary. Please try again.");
         } finally {
             setLoading(false);
         }
     }, []);
 
+    const handleSelectGroup = useCallback(async (groupId: string | null, levelInfo?: { level: string; box: number }) => {
+        if (levelInfo) {
+            setCurrentLevelInfo(levelInfo);
+            const boxParam = levelInfo.box === 0 ? "review" : levelInfo.box;
+            await loadVocabulary(levelInfo.level, boxParam);
+        } else if (groupId) {
+            setCurrentLevelInfo(null);
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`/api/learn/vocabulary?groupId=${groupId}`);
+                const data = await response.json();
+
+                if (data.error) { setError(data.error); return; }
+                if (data.vocabularies.length < 4) { setError("You need at least 4 words to play this mode."); return; }
+
+                setVocabularies(data.vocabularies);
+                setGameStarted(true);
+            } catch {
+                setError("Unable to load vocabulary. Please try again.");
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setError("Please select a vocabulary set.");
+        }
+    }, [loadVocabulary]);
+
     const handleComplete = () => {
         setGameStarted(false);
         setVocabularies([]);
+        setCurrentLevelInfo(null);
     };
+
+    const handleNext = useCallback(() => {
+        if (!currentLevelInfo) return;
+        const { level, box } = currentLevelInfo;
+
+        // Review mode (box=0) → no next
+        if (box === 0) return;
+
+        const currentStat = levelStats.find(l => l.level === level);
+        if (!currentStat) return;
+
+        let nextLevel = level;
+        let nextBox = box + 1;
+
+        if (nextBox > currentStat.boxes) {
+            // Move to next level
+            const currentLevelIndex = LEVEL_ORDER.indexOf(level);
+            if (currentLevelIndex < LEVEL_ORDER.length - 1) {
+                nextLevel = LEVEL_ORDER[currentLevelIndex + 1];
+                nextBox = 1;
+            } else {
+                return; // Last box of last level, no next
+            }
+        }
+
+        setCurrentLevelInfo({ level: nextLevel, box: nextBox });
+        setGameStarted(false);
+        setVocabularies([]);
+        loadVocabulary(nextLevel, nextBox);
+    }, [currentLevelInfo, levelStats, loadVocabulary]);
+
+    // Determine totalBoxes for current level
+    const currentTotalBoxes = currentLevelInfo
+        ? (levelStats.find(l => l.level === currentLevelInfo.level)?.boxes ?? 0)
+        : 0;
+
+    // Determine if there is a next box
+    const hasNext = (() => {
+        if (!currentLevelInfo || currentLevelInfo.box === 0) return false;
+        const currentStat = levelStats.find(l => l.level === currentLevelInfo.level);
+        if (!currentStat) return false;
+        if (currentLevelInfo.box < currentStat.boxes) return true;
+        // Check if there's a next level 
+        const idx = LEVEL_ORDER.indexOf(currentLevelInfo.level);
+        return idx < LEVEL_ORDER.length - 1;
+    })();
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -114,9 +200,11 @@ export default function FlashChoicePage() {
                             <FlashChoiceGame
                                 vocabularies={vocabularies}
                                 onComplete={handleComplete}
+                                levelInfo={currentLevelInfo ? { ...currentLevelInfo, totalBoxes: currentTotalBoxes } : undefined}
+                                onNext={hasNext ? handleNext : undefined}
                             />
                         ) : (
-                            <GroupSelector onSelectGroup={handleSelectGroup} />
+                            <GroupSelector onSelectGroup={handleSelectGroup} gameMode="flash-choice" />
                         )}
                     </div>
                 </div>

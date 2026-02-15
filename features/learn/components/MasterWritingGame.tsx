@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Trophy, RotateCcw, Lightbulb, X, Heart, XCircle, Volume2 } from "lucide-react";
+import { Trophy, RotateCcw, Lightbulb, X, Heart, XCircle, Volume2, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import CloseConfirmDialog from "./CloseConfirmDialog";
@@ -14,11 +14,13 @@ import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 interface MasterWritingGameProps {
     vocabularies: Vocabulary[];
     onComplete: () => void;
+    levelInfo?: { level: string; box: number; totalBoxes: number };
+    onNext?: () => void;
 }
 
 const MAX_LIVES = 5;
 
-export default function MasterWritingGame({ vocabularies, onComplete }: MasterWritingGameProps) {
+export default function MasterWritingGame({ vocabularies, onComplete, levelInfo, onNext }: MasterWritingGameProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [userInput, setUserInput] = useState("");
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -111,6 +113,23 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
         }
     };
 
+    const saveProgress = async () => {
+        if (!levelInfo || levelInfo.box === 0) return;
+        try {
+            await fetch('/api/learn/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: levelInfo.level,
+                    box: levelInfo.box,
+                    gameMode: 'master-writing'
+                })
+            });
+        } catch (error) {
+            console.error('Failed to save progress:', error);
+        }
+    };
+
     const checkAnswer = useCallback(() => {
         const trimmedInput = userInput.trim().toLowerCase();
         const correctAnswer = currentVocab.word.toLowerCase();
@@ -173,6 +192,7 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
             setIsFlipped(false);
         } else {
             playGameOverHappy();
+            saveProgress();
             setIsComplete(true);
         }
     };
@@ -343,8 +363,18 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center"
+                    className="text-center relative"
                 >
+                    {/* Close button */}
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={onComplete}
+                        className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                    >
+                        <X size={20} className="text-red-500" />
+                    </motion.button>
+
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -371,7 +401,7 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                         <p className="text-2xl font-bold mt-2 text-gray-700">{percentage}%</p>
                     </div>
 
-                    <div className="flex gap-4 justify-center">
+                    <div className="flex gap-3 justify-center flex-wrap">
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -381,15 +411,17 @@ export default function MasterWritingGame({ vocabularies, onComplete }: MasterWr
                             <RotateCcw size={18} />
                             Try Again
                         </motion.button>
-                        <Link href="/learn">
+                        {onNext && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium"
+                                onClick={onNext}
+                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium flex items-center gap-2 shadow-lg"
                             >
-                                Other Modes
+                                Next Box
+                                <ChevronRight size={18} />
                             </motion.button>
-                        </Link>
+                        )}
                     </div>
                 </motion.div>
             </>

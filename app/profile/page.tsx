@@ -226,10 +226,10 @@ function ProfileContent() {
     };
 
     const handleUpdateGroup = async (id: string, name: string, description?: string) => {
-        const res = await fetch("/api/vocabulary/groups", {
+        const res = await fetch(`/api/vocabulary/groups/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, name, description }),
+            body: JSON.stringify({ name, description }),
         });
         const data = await res.json();
         if (data.success) {
@@ -429,13 +429,13 @@ function ProfileContent() {
     );
 
     // Format time display
-    const formatActiveTime = (hours: number) => {
-        if (hours < 1) {
-            return `${Math.round(hours * 60)}p`;
+    const formatActiveTime = (totalMinutes: number) => {
+        if (totalMinutes < 60) {
+            return `${totalMinutes}m`;
         }
-        const h = Math.floor(hours);
-        const m = Math.round((hours - h) * 60);
-        return m > 0 ? `${h}h ${m}p` : `${h}h`;
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
     };
 
     // Loading State

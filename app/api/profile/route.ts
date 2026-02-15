@@ -37,7 +37,7 @@ export async function GET() {
             stats: {
                 joinDate: user.createdAt,
                 activeDays: user.activeDays || 1,
-                activeTime: user.activeMinutes ? Math.round(user.activeMinutes / 60) : 0,
+                activeTime: user.activeMinutes || 0,
                 currentStreak: user.streak || 0,
                 activeDates: user.streakDates || [],
                 freezeCount: user.freezeCount ?? 5,
@@ -59,7 +59,7 @@ export async function GET() {
 
                     activity.push({
                         day: days[d.getDay()],
-                        hours: dayLog ? Number((dayLog.minutes / 60).toFixed(1)) : 0,
+                        minutes: dayLog ? dayLog.minutes : 0,
                     });
                 }
                 return activity;
