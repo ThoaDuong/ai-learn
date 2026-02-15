@@ -38,7 +38,7 @@ export async function GET() {
         let newStreak = user.streak || 0;
         let newActiveDays = user.activeDays || 0;
         let shouldUpdate = false;
-        const updateFields: any = {};
+        // updateFields is calculated inline below
 
         // Calculate days difference
         if (lastLoginDate) {

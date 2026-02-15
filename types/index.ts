@@ -96,3 +96,56 @@ export interface GrammarCheckResult {
     friendly: string;
   };
 }
+
+// ---- Client-side types (used in React components) ----
+
+/** Client-side vocabulary item (serialized from MongoDB) */
+export interface ClientVocabulary {
+  _id: string;
+  word: string;
+  meaning: string;
+  pronunciation?: string;
+  partOfSpeech?: string;
+  example?: string;
+  translation?: string;
+  groupId?: string;
+  image?: string;
+  ipa?: string;
+  phonetic?: string;
+  level?: string;
+  exampleTranslation?: string;
+}
+
+/** Client-side vocabulary group */
+export interface ClientGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+}
+
+/** Client-side profile data */
+export interface ProfileData {
+  name: string;
+  email: string;
+  image: string;
+  googleImage?: string;
+}
+
+/** Client-side profile statistics */
+export interface ProfileStats {
+  joinDate: string;
+  activeDays: number;
+  activeTime: number;
+  currentStreak: number;
+  activeDates?: string[];
+  freezeCount?: number;
+  freezeDates?: string[];
+}
+
+/** Weekly activity data point */
+export interface WeeklyActivityItem {
+  day: string;
+  minutes: number;
+}
+

@@ -60,6 +60,7 @@ export default function KeywordTab() {
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onFocus={(e) => e.target.select()}
                     placeholder="Type a word to look up..."
                     className="w-full px-6 py-4 text-lg bg-white/80 backdrop-blur-sm border-2 border-white/50 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-sm hover:border-blue-200"
                     disabled={isLoading}

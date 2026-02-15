@@ -21,47 +21,14 @@ import ActivityChart from "@/features/profile/ActivityChart";
 import AvatarUploader from "@/features/profile/AvatarUploader";
 import StreakCalendar from "@/features/profile/StreakCalendar";
 import { useProfile } from "@/common/contexts/ProfileContext";
-
-interface Vocabulary {
-    _id: string;
-    word: string;
-    meaning: string;
-    pronunciation?: string;
-    partOfSpeech?: string;
-    example?: string;
-    translation?: string;
-    groupId?: string;
-    image?: string;
-    ipa?: string;
-    phonetic?: string;
-    level?: string;
-    exampleTranslation?: string;
-}
-
-interface Group {
-    _id: string;
-    name: string;
-    description?: string;
-}
-
-interface ProfileData {
-    name: string;
-    email: string;
-    image: string;
-    googleImage?: string;
-}
-
-interface Stats {
-    joinDate: string;
-    activeDays: number;
-    activeTime: number;
-    currentStreak: number;
-    activeDates?: string[];
-    freezeCount?: number;
-    freezeDates?: string[];
-}
+import { ClientVocabulary, ClientGroup, ProfileData, ProfileStats, WeeklyActivityItem } from "@/types";
 
 const ITEMS_PER_PAGE = 20;
+
+// Use centralized types with local aliases for backwards compatibility
+type Vocabulary = ClientVocabulary;
+type Group = ClientGroup;
+type Stats = ProfileStats;
 
 function ProfileContent() {
     const { data: session, status, update } = useSession();
@@ -71,7 +38,7 @@ function ProfileContent() {
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [stats, setStats] = useState<Stats | null>(null);
-    const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
+    const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivityItem[]>([]);
 
     // Vocabulary State
     const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);

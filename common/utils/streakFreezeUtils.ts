@@ -1,8 +1,7 @@
 /**
- * Utility functions for streak freeze mechanism
+ * Pure utility functions for streak freeze mechanism.
+ * DB operations are in @/lib/streakFreezeDb.
  */
-
-import { getDatabase } from "@/lib/mongodb";
 
 /**
  * Check if a date is yesterday (for determining if freeze should be used)
@@ -62,62 +61,4 @@ export function shouldUseFreeze(
 
     // Use freeze if exactly 1 day has passed (yesterday was last activity)
     return diffDays === 1;
-}
-
-/**
- * Use a freeze to protect streak
- * - Decrements freezeCount by 1
- * - Adds today's date to freezeDates array
- * - Does NOT change the streak count (maintains it)
- */
-export async function useFreeze(userId: string): Promise<{
-    success: boolean;
-    newFreezeCount: number;
-}> {
-    const db = await getDatabase();
-    const usersCollection = db.collection("users");
-    const { ObjectId } = await import("mongodb");
-
-    const todayStr = getTodayDateString();
-
-    const result = await usersCollection.updateOne(
-        { _id: new ObjectId(userId) },
-        {
-            $inc: { freezeCount: -1 },
-            $addToSet: { freezeDates: todayStr },
-            $set: { updatedAt: new Date() }
-        }
-    );
-
-    if (result.modifiedCount === 0) {
-        return { success: false, newFreezeCount: -1 };
-    }
-
-    // Get updated freeze count
-    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-    return {
-        success: true,
-        newFreezeCount: user?.freezeCount ?? 0
-    };
-}
-
-/**
- * Reset streak to 0 for a user (when no freeze available)
- */
-export async function resetStreak(userId: string): Promise<boolean> {
-    const db = await getDatabase();
-    const usersCollection = db.collection("users");
-    const { ObjectId } = await import("mongodb");
-
-    const result = await usersCollection.updateOne(
-        { _id: new ObjectId(userId) },
-        {
-            $set: {
-                streak: 0,
-                updatedAt: new Date()
-            }
-        }
-    );
-
-    return result.modifiedCount > 0;
 }

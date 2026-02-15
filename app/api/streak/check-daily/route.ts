@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/mongodb";
-import { shouldUseFreeze, useFreeze, resetStreak, getYesterdayDateString } from "@/common/utils/streakFreezeUtils";
+import { shouldUseFreeze, getYesterdayDateString } from "@/common/utils/streakFreezeUtils";
+import { useFreeze, resetStreak } from "@/lib/streakFreezeDb";
 
 /**
  * Daily streak check endpoint

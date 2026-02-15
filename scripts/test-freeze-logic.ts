@@ -13,7 +13,8 @@ async function testFreezeLogic() {
 
     // Import after env vars are loaded
     const { getDatabase } = await import("../lib/mongodb");
-    const { shouldUseFreeze, useFreeze, resetStreak } = await import("../common/utils/streakFreezeUtils");
+    const { shouldUseFreeze } = await import("../common/utils/streakFreezeUtils");
+    const { useFreeze, resetStreak } = await import("../lib/streakFreezeDb");
     const { ObjectId } = await import("mongodb");
 
     const db = await getDatabase();

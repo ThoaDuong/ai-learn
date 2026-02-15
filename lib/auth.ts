@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
                         });
                     } else {
                         // Update existing user
-                        const updateData: any = {
+                        const updateData: { name?: string | null; image?: string | null; googleImage?: string | null; updatedAt: Date } = {
                             name: user.name,
                             googleImage: user.image, // Always update Google image in background
                             updatedAt: new Date(),

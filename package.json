@@ -8,7 +8,8 @@
     "start": "next start",
     "migrate:freeze": "pnpm tsx scripts/migrate-add-freeze.ts",
     "test:freeze": "pnpm tsx scripts/test-freeze-logic.ts",
-    "restore:user": "pnpm tsx scripts/restore-user-data.ts"
+    "restore:user": "pnpm tsx scripts/restore-user-data.ts",
+    "test": "jest"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -27,12 +28,16 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.2.4",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }
