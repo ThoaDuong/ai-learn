@@ -10,7 +10,7 @@
         },
         {
             "path": "/api/notifications/morning-reminder",
-            "schedule": "0 1 * * *"
+            "schedule": "30 7 * * *"
         }
     ]
 }

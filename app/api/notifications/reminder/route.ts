@@ -6,19 +6,19 @@ import { isSameDay } from "@/common/utils/streakUtils";
 
 /**
  * Daily reminder notification endpoint
- * Called by cron job at 22h (10 PM) to:
+ * Called by Vercel Cron Job at 22h (10 PM) to:
  * 1. Find users who haven't earned streak today
  * 2. Send reminder email with appropriate warning
  * 
- * Security: Requires API key for cron job authorization
+ * Security: Vercel sends Authorization: Bearer <CRON_SECRET>
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
     try {
-        // Verify API key for cron job authorization
-        const apiKey = request.headers.get("x-api-key");
-        const expectedKey = process.env.CRON_API_KEY;
+        // Verify Vercel Cron secret
+        const authHeader = request.headers.get("authorization");
+        const expectedSecret = process.env.CRON_SECRET;
 
-        if (!expectedKey || apiKey !== expectedKey) {
+        if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -100,11 +100,3 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// GET endpoint for status check
-export async function GET() {
-    return NextResponse.json({
-        endpoint: "Daily Streak Reminder",
-        description: "Called at 22h (10 PM) to send reminder emails",
-        method: "POST with x-api-key header required"
-    });
-}
