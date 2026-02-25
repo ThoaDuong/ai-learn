@@ -18,6 +18,7 @@ export interface User {
   activeDays?: number;
   activeMinutes?: number;
   activityLog?: { date: Date; minutes: number }[];
+  emailNotifications?: boolean; // defaults to true if undefined
 }
 
 // Vocabulary saved by user
@@ -130,6 +131,7 @@ export interface ProfileData {
   email: string;
   image: string;
   googleImage?: string;
+  emailNotifications?: boolean;
 }
 
 /** Client-side profile statistics */

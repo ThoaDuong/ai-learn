@@ -10,6 +10,7 @@
  */
 
 import nodemailer from "nodemailer";
+import crypto from "crypto";
 
 // Create reusable transporter
 let transporter: nodemailer.Transporter | null = null;
@@ -35,6 +36,40 @@ function getTransporter() {
     });
 
     return transporter;
+}
+
+/**
+ * Generate HMAC token for unsubscribe link
+ */
+function generateUnsubscribeToken(email: string): string {
+    const secret = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || "fallback-secret";
+    return crypto.createHmac("sha256", secret).update(email).digest("hex");
+}
+
+/**
+ * Build unsubscribe URL for a given email
+ */
+function getUnsubscribeUrl(email: string): string {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const token = generateUnsubscribeToken(email);
+    return `${appUrl}/api/notifications/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+}
+
+/**
+ * HTML footer with unsubscribe button — shared across all email templates
+ */
+function getUnsubscribeFooter(email: string): string {
+    const unsubscribeUrl = getUnsubscribeUrl(email);
+    return `
+        <div style="border-top: 1px solid #e2e8f0; margin-top: 32px; padding-top: 24px; text-align: center;">
+            <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0 0 12px 0;">
+                If you no longer wish to receive emails like this, you can unsubscribe below.
+            </p>
+            <a href="${unsubscribeUrl}" 
+               style="display: inline-block; color: #94a3b8; font-size: 13px; text-decoration: underline; padding: 8px 20px; border: 1px solid #e2e8f0; border-radius: 8px; transition: all 0.2s;">
+                Unsubscribe from emails
+            </a>
+        </div>`;
 }
 
 interface ReminderEmailOptions {
@@ -104,6 +139,8 @@ export async function sendStreakReminderEmail({
         <p style="color: #94a3b8; font-size: 14px; text-align: center; margin-top: 30px;">
             This is an automated email from AI Learn. You received this email because you signed up for an account.
         </p>
+
+        ${getUnsubscribeFooter(to)}
     </div>
 </body>
 </html>
@@ -202,6 +239,8 @@ export async function sendDailyReminderEmail({
         <p style="color: #94a3b8; font-size: 14px; text-align: center; margin-top: 30px;">
             This is your daily reminder from TLearn. Keep learning, stay chill! ✨
         </p>
+
+        ${getUnsubscribeFooter(to)}
     </div>
 </body>
 </html>

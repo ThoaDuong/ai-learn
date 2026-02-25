@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TranslationResult, WordAnalysis, InvalidWord } from "@/types";
 import WordResult from "./WordResult";
 import InvalidWordResult from "./InvalidWordResult";
+import Image from "next/image";
 
 export default function KeywordTab() {
     const [keyword, setKeyword] = useState("");
@@ -76,6 +77,53 @@ export default function KeywordTab() {
                         <Search className="w-5 h-5" />
                     )}
                 </button>
+
+                {/* Sloth clinging to the input bar */}
+                <div
+                    className="absolute pointer-events-none select-none"
+                    style={{
+                        right: '70px',
+                        top: '-35px',
+                        zIndex: 10,
+                    }}
+                >
+                    <Image
+                        src="/images/sloth.png"
+                        alt="Sloth mascot"
+                        width={80}
+                        height={80}
+                        className="drop-shadow-md"
+                    />
+                </div>
+
+
+                {/* Sloth hanging below the input bar */}
+                <div
+                    className="absolute pointer-events-none select-none"
+                    style={{
+                        left: '30px',
+                        bottom: '-130px',
+                        zIndex: 10,
+                        animation: 'sloth-swing 5s ease-in-out infinite',
+                        transformOrigin: 'top right',
+                    }}
+                >
+                    <Image
+                        src="/images/sloth-2.png"
+                        alt="Sloth mascot"
+                        width={260}
+                        height={260}
+                        className="drop-shadow-md"
+                    />
+                </div>
+
+                {/* Sloth swing animation */}
+                <style jsx global>{`
+                    @keyframes sloth-swing {
+                        0%, 100% { transform: rotate(-1deg); }
+                        50% { transform: rotate(1deg); }
+                    }
+                `}</style>
             </div>
 
             <AnimatePresence mode="wait">

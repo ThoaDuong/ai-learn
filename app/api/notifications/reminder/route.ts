@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
         // 2. Haven't earned streak today (lastStreakDate < today or doesn't include today in streakDates)
         const usersToNotify = await usersCollection.find({
             streak: { $gt: 0 },
-            email: { $exists: true, $ne: null }
+            email: { $exists: true, $ne: null },
+            emailNotifications: { $ne: false }
         }).toArray();
 
         const results = {

@@ -33,6 +33,7 @@ export async function GET() {
                 email: user.email,
                 image: user.image,
                 googleImage: user.googleImage,
+                emailNotifications: user.emailNotifications !== false, // default true
             },
             stats: {
                 joinDate: user.createdAt,
@@ -86,11 +87,11 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, image } = body;
+        const { name, image, emailNotifications } = body;
 
-        if (!name && !image) {
+        if (!name && !image && (emailNotifications === undefined)) {
             return NextResponse.json(
-                { error: "Name or image is required" },
+                { error: "Name, image, or emailNotifications is required" },
                 { status: 400 }
             );
         }
@@ -100,12 +101,13 @@ export async function PUT(request: NextRequest) {
 
         const googleId = (session.user as { googleId?: string }).googleId;
 
-        const updateData: { name?: string; image?: string; updatedAt: Date } = {
+        const updateData: { name?: string; image?: string; emailNotifications?: boolean; updatedAt: Date } = {
             updatedAt: new Date(),
         };
 
         if (name) updateData.name = name;
         if (image) updateData.image = image;
+        if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
 
         const result = await usersCollection.updateOne(
             { googleId },

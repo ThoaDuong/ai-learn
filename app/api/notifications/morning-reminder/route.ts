@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
         const db = await getDatabase();
         const usersCollection = db.collection("users");
 
-        // Find all users with an email
+        // Find all users with an email who haven't opted out
         const users = await usersCollection.find({
-            email: { $exists: true, $ne: null }
+            email: { $exists: true, $ne: null },
+            emailNotifications: { $ne: false }
         }).toArray();
 
         const results = {
