@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/mongodb";
-import { shouldUseFreeze, getYesterdayDateString } from "@/common/utils/streakFreezeUtils";
-import { useFreeze, resetStreak } from "@/lib/streakFreezeDb";
+import { calculateMissedDays, getDateStringDaysAgo } from "@/common/utils/streakFreezeUtils";
+import { useMultipleFreezes, resetStreak } from "@/lib/streakFreezeDb";
 
 /**
  * Daily streak check endpoint
  * Called by Vercel Cron Job at midnight to:
  * 1. Find users who didn't earn streak today
- * 2. Use freeze if available, or reset streak
+ * 2. Calculate how many days they missed
+ * 3. Use freezes for each missed day if available, or reset streak
  * 
  * Security: Vercel sends Authorization: Bearer <CRON_SECRET>
  */
@@ -31,8 +32,6 @@ export async function GET(request: NextRequest) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const yesterdayStr = getYesterdayDateString();
-
         // Find users who:
         // 1. Have a streak > 0
         // 2. Last streak date is before today (didn't earn streak today)
@@ -44,6 +43,7 @@ export async function GET(request: NextRequest) {
         const results = {
             processed: 0,
             freezeUsed: 0,
+            freezesConsumedTotal: 0,
             streakReset: 0,
             errors: 0
         };
@@ -54,17 +54,35 @@ export async function GET(request: NextRequest) {
 
                 const freezeCount = user.freezeCount ?? 5;
                 const lastStreakDate = user.lastStreakDate ? new Date(user.lastStreakDate) : null;
+                const missedDays = calculateMissedDays(lastStreakDate);
 
-                if (shouldUseFreeze(lastStreakDate, freezeCount)) {
-                    // Use freeze to protect streak
-                    const freezeResult = await useFreeze(user._id.toString());
+                if (missedDays === 0) {
+                    // User is still active (streak earned today or yesterday)
+                    continue;
+                }
+
+                if (freezeCount >= missedDays) {
+                    // Enough freezes to cover all missed days
+                    // Generate date strings for each missed day
+                    const missedDateStrings: string[] = [];
+                    for (let i = missedDays; i >= 1; i--) {
+                        missedDateStrings.push(getDateStringDaysAgo(i));
+                    }
+
+                    const freezeResult = await useMultipleFreezes(
+                        user._id.toString(),
+                        missedDays,
+                        missedDateStrings
+                    );
+
                     if (freezeResult.success) {
                         results.freezeUsed++;
+                        results.freezesConsumedTotal += missedDays;
                     } else {
                         results.errors++;
                     }
-                } else if (freezeCount <= 0) {
-                    // No freeze available, reset streak
+                } else {
+                    // Not enough freezes — reset streak
                     const resetResult = await resetStreak(user._id.toString());
                     if (resetResult) {
                         results.streakReset++;
@@ -92,4 +110,3 @@ export async function GET(request: NextRequest) {
         );
     }
 }
-

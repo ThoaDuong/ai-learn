@@ -1,8 +1,8 @@
 import {
-    isYesterday,
     getTodayDateString,
     getYesterdayDateString,
-    shouldUseFreeze,
+    getDateStringDaysAgo,
+    calculateMissedDays,
 } from "@/common/utils/streakFreezeUtils";
 
 describe("streakFreezeUtils", () => {
@@ -13,28 +13,6 @@ describe("streakFreezeUtils", () => {
 
     afterEach(() => {
         jest.useRealTimers();
-    });
-
-    describe("isYesterday", () => {
-        it("should return true for yesterday's date", () => {
-            const yesterday = new Date("2026-02-14T15:00:00Z");
-            expect(isYesterday(yesterday)).toBe(true);
-        });
-
-        it("should return false for today's date", () => {
-            const today = new Date("2026-02-15T08:00:00Z");
-            expect(isYesterday(today)).toBe(false);
-        });
-
-        it("should return false for two days ago", () => {
-            const twoDaysAgo = new Date("2026-02-13T12:00:00Z");
-            expect(isYesterday(twoDaysAgo)).toBe(false);
-        });
-
-        it("should return false for tomorrow", () => {
-            const tomorrow = new Date("2026-02-16T12:00:00Z");
-            expect(isYesterday(tomorrow)).toBe(false);
-        });
     });
 
     describe("getTodayDateString", () => {
@@ -56,34 +34,48 @@ describe("streakFreezeUtils", () => {
         });
     });
 
-    describe("shouldUseFreeze", () => {
-        it("should return false when lastStreakDate is null", () => {
-            expect(shouldUseFreeze(null, 5)).toBe(false);
+    describe("getDateStringDaysAgo", () => {
+        it("should return 0 days ago as today", () => {
+            expect(getDateStringDaysAgo(0)).toBe("2026-02-15");
         });
 
-        it("should return false when freezeCount is 0", () => {
-            const yesterday = new Date("2026-02-14T10:00:00Z");
-            expect(shouldUseFreeze(yesterday, 0)).toBe(false);
+        it("should return 1 day ago as yesterday", () => {
+            expect(getDateStringDaysAgo(1)).toBe("2026-02-14");
         });
 
-        it("should return false when freezeCount is negative", () => {
-            const yesterday = new Date("2026-02-14T10:00:00Z");
-            expect(shouldUseFreeze(yesterday, -1)).toBe(false);
+        it("should return 5 days ago", () => {
+            expect(getDateStringDaysAgo(5)).toBe("2026-02-10");
+        });
+    });
+
+    describe("calculateMissedDays", () => {
+        it("should return 0 when lastStreakDate is null", () => {
+            expect(calculateMissedDays(null)).toBe(0);
         });
 
-        it("should return true when last activity was yesterday and freeze is available", () => {
-            const yesterday = new Date("2026-02-14T10:00:00Z");
-            expect(shouldUseFreeze(yesterday, 3)).toBe(true);
-        });
-
-        it("should return false when last activity was today", () => {
+        it("should return 0 when last activity was today", () => {
             const today = new Date("2026-02-15T08:00:00Z");
-            expect(shouldUseFreeze(today, 5)).toBe(false);
+            expect(calculateMissedDays(today)).toBe(0);
         });
 
-        it("should return false when last activity was more than 1 day ago", () => {
+        it("should return 0 when last activity was yesterday (no gap yet)", () => {
+            const yesterday = new Date("2026-02-14T10:00:00Z");
+            expect(calculateMissedDays(yesterday)).toBe(0);
+        });
+
+        it("should return 1 when last activity was 2 days ago (missed 1 day)", () => {
             const twoDaysAgo = new Date("2026-02-13T10:00:00Z");
-            expect(shouldUseFreeze(twoDaysAgo, 5)).toBe(false);
+            expect(calculateMissedDays(twoDaysAgo)).toBe(1);
+        });
+
+        it("should return 3 when last activity was 4 days ago (missed 3 days)", () => {
+            const fourDaysAgo = new Date("2026-02-11T10:00:00Z");
+            expect(calculateMissedDays(fourDaysAgo)).toBe(3);
+        });
+
+        it("should return 7 when last activity was 8 days ago (missed 7 days)", () => {
+            const eightDaysAgo = new Date("2026-02-07T10:00:00Z");
+            expect(calculateMissedDays(eightDaysAgo)).toBe(7);
         });
     });
 });

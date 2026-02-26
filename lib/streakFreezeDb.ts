@@ -5,42 +5,53 @@
 
 import { getDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getTodayDateString } from "@/common/utils/streakFreezeUtils";
 
 export interface FreezeResult {
     success: boolean;
+    freezesUsed: number;
     newFreezeCount: number;
 }
 
 /**
- * Use a freeze to protect streak
- * - Decrements freezeCount by 1
- * - Adds today's date to freezeDates array
- * - Does NOT change the streak count (maintains it)
+ * Use multiple freezes to protect streak across missed days.
+ * - Decrements freezeCount by the number of freezes used
+ * - Adds each missed date to freezeDates array
+ * - Updates lastStreakDate to yesterday so next cron run works correctly
  */
-export async function useFreeze(userId: string): Promise<FreezeResult> {
+export async function useMultipleFreezes(
+    userId: string,
+    count: number,
+    missedDateStrings: string[]
+): Promise<FreezeResult> {
     const db = await getDatabase();
     const usersCollection = db.collection("users");
 
-    const todayStr = getTodayDateString();
+    // Set lastStreakDate to yesterday so the streak chain continues
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(12, 0, 0, 0); // noon to avoid timezone edge cases
 
     const result = await usersCollection.updateOne(
         { _id: new ObjectId(userId) },
         {
-            $inc: { freezeCount: -1 },
-            $addToSet: { freezeDates: todayStr },
-            $set: { updatedAt: new Date() }
+            $inc: { freezeCount: -count },
+            $addToSet: { freezeDates: { $each: missedDateStrings } },
+            $set: {
+                lastStreakDate: yesterday,
+                updatedAt: new Date()
+            }
         }
     );
 
     if (result.modifiedCount === 0) {
-        return { success: false, newFreezeCount: -1 };
+        return { success: false, freezesUsed: 0, newFreezeCount: -1 };
     }
 
     // Get updated freeze count
     const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
     return {
         success: true,
+        freezesUsed: count,
         newFreezeCount: user?.freezeCount ?? 0
     };
 }

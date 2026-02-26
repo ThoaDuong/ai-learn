@@ -4,20 +4,6 @@
  */
 
 /**
- * Check if a date is yesterday (for determining if freeze should be used)
- */
-export function isYesterday(date: Date): boolean {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
-
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-
-    return yesterday.getTime() === checkDate.getTime();
-}
-
-/**
  * Get today's date as YYYY-MM-DD string
  */
 export function getTodayDateString(): string {
@@ -35,18 +21,22 @@ export function getYesterdayDateString(): string {
 }
 
 /**
- * Check if user qualifies for freeze protection
- * User qualifies if:
- * 1. They have freezeCount > 0
- * 2. They didn't earn streak today (lastStreakDate < today)
- * 3. Their last streak activity was yesterday (so streak is still valid but at risk)
+ * Get a date string for N days ago
  */
-export function shouldUseFreeze(
-    lastStreakDate: Date | null,
-    freezeCount: number
-): boolean {
-    if (!lastStreakDate || freezeCount <= 0) {
-        return false;
+export function getDateStringDaysAgo(daysAgo: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date.toISOString().split('T')[0];
+}
+
+/**
+ * Calculate how many days a user has missed since their last streak activity.
+ * Returns 0 if the user earned streak today or yesterday (no freeze needed).
+ * Returns the number of missed days otherwise.
+ */
+export function calculateMissedDays(lastStreakDate: Date | null): number {
+    if (!lastStreakDate) {
+        return 0; // No streak history, nothing to protect
     }
 
     const today = new Date();
@@ -55,10 +45,14 @@ export function shouldUseFreeze(
     const lastStreak = new Date(lastStreakDate);
     lastStreak.setHours(0, 0, 0, 0);
 
-    // Calculate days since last streak activity
     const diffTime = today.getTime() - lastStreak.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    // Use freeze if exactly 1 day has passed (yesterday was last activity)
-    return diffDays === 1;
+    // If diffDays <= 1, user is still active (today or yesterday) — no freeze needed
+    if (diffDays <= 1) {
+        return 0;
+    }
+
+    // User missed (diffDays - 1) days: e.g. lastStreak=Mon, today=Thu → missed Tue,Wed = 2 days
+    return diffDays - 1;
 }
