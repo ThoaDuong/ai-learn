@@ -99,7 +99,7 @@ export default function KeywordTab() {
 
                 {/* Sloth hanging below the input bar */}
                 <div
-                    className="absolute pointer-events-none select-none"
+                    className="absolute z-10 pointer-events-none select-none"
                     style={{
                         left: '30px',
                         bottom: '-130px',

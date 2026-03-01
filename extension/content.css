@@ -71,9 +71,11 @@
 #tlearn-ext-panel::-webkit-scrollbar {
     width: 4px;
 }
+
 #tlearn-ext-panel::-webkit-scrollbar-track {
     background: transparent;
 }
+
 #tlearn-ext-panel::-webkit-scrollbar-thumb {
     background: #d1d5db;
     border-radius: 4px;
@@ -152,7 +154,9 @@
 }
 
 @keyframes tlearn-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* ── Word Result ── */
@@ -189,18 +193,29 @@
 }
 
 .tlearn-speak-btn {
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: #f3f4f6;
-    border-radius: 50%;
-    color: #6b7280;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border: none !important;
+    background: #f3f4f6 !important;
+    border-radius: 50% !important;
+    color: #6b7280 !important;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     transition: all 0.15s ease;
-    flex-shrink: 0;
+    flex-shrink: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.tlearn-speak-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
 }
 
 .tlearn-speak-btn:hover {
@@ -229,12 +244,29 @@
     text-transform: uppercase;
 }
 
-.tlearn-level-a1 { background: #22c55e; }
-.tlearn-level-a2 { background: #84cc16; }
-.tlearn-level-b1 { background: #eab308; }
-.tlearn-level-b2 { background: #f97316; }
-.tlearn-level-c1 { background: #ef4444; }
-.tlearn-level-c2 { background: #b91c1c; }
+.tlearn-level-a1 {
+    background: #22c55e;
+}
+
+.tlearn-level-a2 {
+    background: #84cc16;
+}
+
+.tlearn-level-b1 {
+    background: #eab308;
+}
+
+.tlearn-level-b2 {
+    background: #f97316;
+}
+
+.tlearn-level-c1 {
+    background: #ef4444;
+}
+
+.tlearn-level-c2 {
+    background: #b91c1c;
+}
 
 /* ── Sections ── */
 .tlearn-section {

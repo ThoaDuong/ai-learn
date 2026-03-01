@@ -122,7 +122,7 @@ export default function WordResult({ data }: WordResultProps) {
     };
 
     return (
-        <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden relative">
+        <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden relative z-20">
             {/* Success Alert Component */}
             <SuccessAlert
                 isOpen={successInfo !== null}
