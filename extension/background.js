@@ -144,38 +144,49 @@ async function getProfile(authInfo) {
 // Message handler
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "CHECK_AUTH") {
-        checkAuth().then(sendResponse);
-        return true; // async
+        checkAuth()
+            .then(sendResponse)
+            .catch(() => sendResponse({ loggedIn: false }));
+        return true;
     }
 
     if (msg.type === "TRANSLATE") {
-        checkAuth().then(authInfo => {
-            translateText(msg.text, authInfo).then(sendResponse).catch(err => {
-                sendResponse({ error: err.message });
-            });
-        });
+        (async () => {
+            try {
+                const authInfo = await checkAuth();
+                const result = await translateText(msg.text, authInfo);
+                sendResponse(result);
+            } catch (err) {
+                sendResponse({ error: err.message || "Translation failed" });
+            }
+        })();
         return true;
     }
 
     if (msg.type === "SAVE_WORD") {
-        checkAuth().then(authInfo => {
-            saveVocabulary(msg.wordData, authInfo)
-                .then(async (result) => {
-                    // Award streak after successful save
-                    await awardStreak(authInfo);
-                    sendResponse(result);
-                })
-                .catch(err => {
-                    sendResponse({ error: err.message });
-                });
-        });
+        (async () => {
+            try {
+                const authInfo = await checkAuth();
+                const result = await saveVocabulary(msg.wordData, authInfo);
+                await awardStreak(authInfo);
+                sendResponse(result);
+            } catch (err) {
+                sendResponse({ error: err.message || "Save failed" });
+            }
+        })();
         return true;
     }
 
     if (msg.type === "GET_PROFILE") {
-        checkAuth().then(authInfo => {
-            getProfile(authInfo).then(sendResponse);
-        });
+        (async () => {
+            try {
+                const authInfo = await checkAuth();
+                const data = await getProfile(authInfo);
+                sendResponse(data);
+            } catch {
+                sendResponse(null);
+            }
+        })();
         return true;
     }
 
