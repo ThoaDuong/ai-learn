@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { div } from "framer-motion/client";
+
 
 interface StreakCalendarProps {
     activeDates?: string[]; // ISO date strings (YYYY-MM-DD)
@@ -92,7 +92,7 @@ export default function StreakCalendar({ activeDates = [], freezeDates = [] }: S
     const getDayCellClass = (day: number | null) => {
         if (day === null) return "";
         if (isToday(day)) return "bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold shadow-md";
-        if (isFreezeDay(day)) return "text-white font-bold";
+        if (isFreezeDay(day)) return "text-gray-900 font-bold";
         if (isActiveDay(day)) return "text-white font-bold";
         return "text-gray-700 hover:bg-gray-50";
     };

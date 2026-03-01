@@ -90,6 +90,13 @@ export async function POST(request: NextRequest) {
             delete updateOp.$inc;
         }
 
+        // Monthly streak bonus: +1 freeze every 30 consecutive days (max 5)
+        const currentFreezeCount = user.freezeCount ?? 5;
+        if (newStreak > 0 && newStreak % 30 === 0 && currentFreezeCount < 5) {
+            if (!updateOp.$inc) updateOp.$inc = {};
+            updateOp.$inc.freezeCount = 1;
+        }
+
         // Update user
         await usersCollection.updateOne(
             { googleId },

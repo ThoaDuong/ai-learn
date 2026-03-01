@@ -4,11 +4,21 @@
  */
 
 /**
+ * Format a Date as YYYY-MM-DD using local timezone (not UTC).
+ * This avoids timezone mismatch between server-stored dates and client rendering.
+ */
+function formatLocalDate(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+/**
  * Get today's date as YYYY-MM-DD string
  */
 export function getTodayDateString(): string {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return formatLocalDate(new Date());
 }
 
 /**
@@ -17,7 +27,7 @@ export function getTodayDateString(): string {
 export function getYesterdayDateString(): string {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return formatLocalDate(yesterday);
 }
 
 /**
@@ -26,7 +36,7 @@ export function getYesterdayDateString(): string {
 export function getDateStringDaysAgo(daysAgo: number): string {
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
-    return date.toISOString().split('T')[0];
+    return formatLocalDate(date);
 }
 
 /**
