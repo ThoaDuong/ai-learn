@@ -222,12 +222,10 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
         onComplete();
     };
 
-    // Hearts component - hearts disappear from LEFT to RIGHT
-    // When lives = 5: all visible, lives = 4: index 0 hidden, lives = 3: indices 0,1 hidden, etc.
-    const HeartsDisplay = () => (
+    // Hearts display - memoized to avoid remounting on every keystroke
+    const heartsDisplay = useMemo(() => (
         <div className="flex items-center gap-1">
             {[...Array(MAX_LIVES)].map((_, index) => {
-                // Hearts disappear from left: index must be >= (MAX_LIVES - lives) to be visible
                 const isVisible = index >= (MAX_LIVES - lives);
                 return (
                     <motion.div
@@ -244,15 +242,15 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 );
             })}
         </div>
-    );
+    ), [lives]);
 
-    // Header component - reusable across states
-    const GameHeader = () => (
+    // Game header - memoized to prevent progress bar flicker on typing
+    const gameHeader = useMemo(() => (
         <div className="mb-8">
             <div className="flex justify-between items-center text-sm text-gray-500 mb-2">
                 <span>Word {currentIndex + 1}/{shuffledVocabularies.length}</span>
                 <div className="flex items-center gap-3">
-                    <HeartsDisplay />
+                    {heartsDisplay}
                     <span>Correct: {correctCount}</span>
                     <motion.button
                         whileHover={{ scale: 1.1 }}
@@ -272,7 +270,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 />
             </div>
         </div>
-    );
+    ), [currentIndex, shuffledVocabularies.length, correctCount, lives, heartsDisplay]);
 
     // Game Over screen
     if (isGameOver) {
@@ -437,7 +435,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
             />
 
             {/* Header: Progress + Hearts + Close Button */}
-            <GameHeader />
+            {gameHeader}
 
             {/* Flip Card Container */}
             <div className="perspective-1000 mb-6">

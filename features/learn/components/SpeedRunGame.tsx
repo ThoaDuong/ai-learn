@@ -182,7 +182,9 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
 
             if (!hasPlayedEndSound) {
                 setHasPlayedEndSound(true);
-                if (score >= WIN_THRESHOLD) {
+                // Completed all questions OR high score → celebration
+                const completedAll = currentIndex === questions.length - 1 && isCorrect;
+                if (completedAll || score >= WIN_THRESHOLD) {
                     setShowConfetti(true);
                     playGameOverHappy();
                 } else {
@@ -190,7 +192,7 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
                 }
             }
         }
-    }, [isGameOver, hasPlayedEndSound, score, playGameOverHappy, playGameOverSad, hasCheckedStreak]);
+    }, [isGameOver, hasPlayedEndSound, score, playGameOverHappy, playGameOverSad, hasCheckedStreak, currentIndex, questions.length, isCorrect]);
 
     const handleAnswer = useCallback((optionIndex: number) => {
         if (selectedAnswer !== null || isGameOver) return;
@@ -251,8 +253,8 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
             'from-red-400 to-rose-500';
 
     if (isGameOver) {
-        const isWin = score >= WIN_THRESHOLD;
         const isAllCorrect = currentIndex === questions.length - 1 && isCorrect;
+        const isWin = isAllCorrect || score >= WIN_THRESHOLD;
 
         return (
             <>
@@ -292,10 +294,19 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
                     </motion.div>
 
                     <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                        Game Over!
+                        {isAllCorrect ? "Congratulations! 🎉" : "Game Over!"}
                     </h2>
 
-                    {isWin && (
+                    {isAllCorrect ? (
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="text-lg text-emerald-600 font-medium mb-2"
+                        >
+                            Perfect! You completed all {questions.length} questions!
+                        </motion.p>
+                    ) : isWin ? (
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -304,7 +315,7 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
                         >
                             🎉 Amazing! You scored {">"}= {WIN_THRESHOLD} points!
                         </motion.p>
-                    )}
+                    ) : null}
 
                     <div className="flex items-center justify-center gap-2 mb-6">
                         <Flame className="text-orange-500" />
