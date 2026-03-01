@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TLearn</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <div class="popup-header">
+            <div class="popup-logo">
+                <img src="icons/icon48.png" alt="TLearn" width="28" height="28">
+                <span>TLearn</span>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="popup-loading">
+            <div class="spinner"></div>
+        </div>
+
+        <!-- Logged In State -->
+        <div id="logged-in" class="popup-body" style="display: none;">
+            <div class="user-info">
+                <img id="user-avatar" class="user-avatar" src="" alt="" width="40" height="40">
+                <div class="user-details">
+                    <h3 id="user-name"></h3>
+                    <p id="user-email"></p>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat">
+                    <span class="stat-icon">🔥</span>
+                    <span id="streak-count" class="stat-value">0</span>
+                    <span class="stat-label">Streak</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">❄️</span>
+                    <span id="freeze-count" class="stat-value">0</span>
+                    <span class="stat-label">Freezes</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">📚</span>
+                    <span id="active-days" class="stat-value">0</span>
+                    <span class="stat-label">Days</span>
+                </div>
+            </div>
+
+            <button id="open-tlearn" class="btn btn-primary">
+                Open TLearn
+            </button>
+        </div>
+
+        <!-- Logged Out State -->
+        <div id="logged-out" class="popup-body" style="display: none;">
+            <p class="login-message">Login to save vocabulary and track your streak!</p>
+            <button id="login-btn" class="btn btn-primary">
+                Login with Google
+            </button>
+            <button id="open-site-btn" class="btn btn-secondary">
+                Visit TLearn
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="popup-footer">
+            <span>Highlight any word to translate</span>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
