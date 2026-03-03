@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
 interface ActivityData {
     day: string;
     minutes: number;
+    correct?: number;
+    wrong?: number;
     fullDate?: string;
 }
 
@@ -149,6 +151,20 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">Weekly Activity</h3>
                     <p className="text-sm text-gray-500 mt-1">Active time per day</p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-sm bg-blue-400" />
+                            <span className="text-xs text-gray-500">Minutes</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-1 rounded bg-emerald-500" />
+                            <span className="text-xs text-gray-500">Correct</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-1 rounded bg-red-400" />
+                            <span className="text-xs text-gray-500">Wrong</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -195,7 +211,7 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                 )}
 
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
+                    <ComposedChart
                         data={chartData}
                         margin={{
                             top: 5,
@@ -207,15 +223,38 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis
                             dataKey="day"
-                            tick={{ fill: '#6b7280', fontSize: 12 }}
+                            tick={({ x, y, payload, index }: any) => {
+                                const date = new Date(weekStart);
+                                date.setDate(weekStart.getDate() + index);
+                                const dateStr = `${date.getDate()}/${date.getMonth() + 1}`;
+                                return (
+                                    <g transform={`translate(${x},${y})`}>
+                                        <text x={0} y={0} dy={14} textAnchor="middle" fill="#6b7280" fontSize={12}>
+                                            {payload.value}
+                                        </text>
+                                        <text x={0} y={0} dy={28} textAnchor="middle" fill="#9ca3af" fontSize={10}>
+                                            {dateStr}
+                                        </text>
+                                    </g>
+                                );
+                            }}
                             axisLine={{ stroke: '#d1d5db' }}
+                            height={45}
                         />
                         <YAxis
+                            yAxisId="left"
                             tick={{ fill: '#6b7280', fontSize: 11 }}
                             axisLine={{ stroke: '#d1d5db' }}
                             tickFormatter={formatTimeLabel}
                             ticks={ticks}
                             domain={[0, ticks[ticks.length - 1]]}
+                        />
+                        <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                            axisLine={{ stroke: '#d1d5db' }}
+                            allowDecimals={false}
                         />
                         <Tooltip
                             contentStyle={{
@@ -225,12 +264,16 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             }}
                             cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
-                            formatter={(value: number | undefined) => {
-                                if (value === undefined) return ['0', 'Active Time'];
-                                return [formatTimeLabel(value), 'Active Time'];
+                            formatter={(value: any, name: any) => {
+                                if (value === undefined) return ['0', name];
+                                if (name === 'minutes') return [formatTimeLabel(value), 'Active Time'];
+                                if (name === 'correct') return [value, 'Correct ✅'];
+                                if (name === 'wrong') return [value, 'Wrong ❌'];
+                                return [value, name];
                             }}
                         />
                         <Bar
+                            yAxisId="left"
                             dataKey="minutes"
                             radius={[8, 8, 0, 0]}
                             maxBarSize={60}
@@ -239,7 +282,25 @@ export default function ActivityChart({ data: initialData }: ActivityChartProps)
                                 <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
                             ))}
                         </Bar>
-                    </BarChart>
+                        <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="correct"
+                            stroke="#10b981"
+                            strokeWidth={2.5}
+                            dot={{ fill: '#10b981', r: 4 }}
+                            activeDot={{ r: 6 }}
+                        />
+                        <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="wrong"
+                            stroke="#ef4444"
+                            strokeWidth={2.5}
+                            dot={{ fill: '#ef4444', r: 4 }}
+                            activeDot={{ r: 6 }}
+                        />
+                    </ComposedChart>
                 </ResponsiveContainer>
             </div>
         </motion.div>

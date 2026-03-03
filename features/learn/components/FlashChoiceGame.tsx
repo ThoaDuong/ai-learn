@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Trophy, RotateCcw, X, Volume2, Heart, Bookmark, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -34,6 +34,9 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [correctCount, setCorrectCount] = useState(0);
+    const [wrongCount, setWrongCount] = useState(0);
+    const correctCountRef = useRef(0);
+    const wrongCountRef = useRef(0);
     const [lives, setLives] = useState(MAX_LIVES);
     const [isComplete, setIsComplete] = useState(false);
     const [isGameOver, setIsGameOver] = useState(false);
@@ -61,17 +64,19 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
         start();
         return () => {
             const minutes = getMinutes();
-            if (minutes > 0) saveActivity(minutes);
+            if (minutes > 0 || correctCountRef.current > 0 || wrongCountRef.current > 0) {
+                saveActivity(minutes, correctCountRef.current, wrongCountRef.current);
+            }
         };
     }, []);
 
-    const saveActivity = async (minutes: number) => {
+    const saveActivity = async (minutes: number, correct?: number, wrong?: number) => {
         const today = new Date().toISOString().split('T')[0];
         try {
             await fetch('/api/activity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ minutes, date: today })
+                body: JSON.stringify({ minutes, date: today, correct, wrong })
             });
         } catch (error) {
             console.error('Failed to save activity:', error);
@@ -158,6 +163,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
             playCorrect();
             const newCorrectCount = correctCount + 1;
             setCorrectCount(newCorrectCount);
+            correctCountRef.current = newCorrectCount;
 
             if (newCorrectCount === 5 && !hasShownStreakDialog) {
                 checkStreak();
@@ -202,6 +208,10 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
             }
             // Allow retry - don't advance, just reset selectedAnswer after showing wrong state
             // User can try again on same question
+            setWrongCount(prev => {
+                wrongCountRef.current = prev + 1;
+                return prev + 1;
+            });
         }
     }, [selectedAnswer, isCorrect, currentQuestion, currentIndex, questions.length, correctCount, lives, playCorrect, playWrong, playGameOverSad, playGameOverHappy, hasShownStreakDialog]);
 
@@ -210,6 +220,9 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
         setSelectedAnswer(null);
         setIsCorrect(null);
         setCorrectCount(0);
+        setWrongCount(0);
+        correctCountRef.current = 0;
+        wrongCountRef.current = 0;
         setLives(MAX_LIVES);
         setIsComplete(false);
         setIsGameOver(false);
@@ -255,7 +268,7 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
 
     const handleConfirmClose = () => {
         const minutes = getMinutes();
-        if (minutes > 0) saveActivity(minutes);
+        if (minutes > 0 || correctCount > 0 || wrongCount > 0) saveActivity(minutes, correctCount, wrongCount);
         setShowCloseDialog(false);
         onComplete();
     };

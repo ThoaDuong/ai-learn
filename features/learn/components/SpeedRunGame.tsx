@@ -32,6 +32,9 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [score, setScore] = useState(0);
+    const [wrongCount, setWrongCount] = useState(0);
+    const scoreRef = useRef(0);
+    const wrongCountRef = useRef(0);
     const [isGameOver, setIsGameOver] = useState(false);
     const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
     const [isAnswering, setIsAnswering] = useState(false);
@@ -55,17 +58,19 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
         start();
         return () => {
             const minutes = getMinutes();
-            if (minutes > 0) saveActivity(minutes);
+            if (minutes > 0 || scoreRef.current > 0 || wrongCountRef.current > 0) {
+                saveActivity(minutes, scoreRef.current, wrongCountRef.current);
+            }
         };
     }, []);
 
-    const saveActivity = async (minutes: number) => {
+    const saveActivity = async (minutes: number, correct?: number, wrong?: number) => {
         const today = new Date().toISOString().split('T')[0];
         try {
             await fetch('/api/activity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ minutes, date: today })
+                body: JSON.stringify({ minutes, date: today, correct, wrong })
             });
         } catch (error) {
             console.error('Failed to save activity:', error);
@@ -208,7 +213,10 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
 
         if (correct) {
             playCorrect();
-            setScore(prev => prev + 1);
+            setScore(prev => {
+                scoreRef.current = prev + 1;
+                return prev + 1;
+            });
 
             // Move to next question after short delay
             setTimeout(() => {
@@ -225,6 +233,10 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
             }, 500);
         } else {
             // Wrong answer - game over
+            setWrongCount(prev => {
+                wrongCountRef.current = prev + 1;
+                return prev + 1;
+            });
             setTimeout(() => {
                 setIsGameOver(true);
             }, 1000);
@@ -236,6 +248,9 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
         setSelectedAnswer(null);
         setIsCorrect(null);
         setScore(0);
+        setWrongCount(0);
+        scoreRef.current = 0;
+        wrongCountRef.current = 0;
         setIsGameOver(false);
         setTimeLeft(TIMER_DURATION);
         setIsAnswering(false);

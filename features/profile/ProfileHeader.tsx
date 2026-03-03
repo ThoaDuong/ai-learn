@@ -1,9 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { Settings, Calendar, Mail, User, Bell, Box } from "lucide-react";
+import { Settings, Calendar, Mail, User, Bell, Box, Loader2 } from "lucide-react";
 import AvatarUploader from "./AvatarUploader";
 import { ProfileData, ProfileStats } from "@/types";
+
+function InlineSkeleton({ width = "w-24", height = "h-4" }: { width?: string; height?: string }) {
+    return <span className={`inline-block ${width} ${height} bg-gray-200 rounded-md animate-pulse`} />;
+}
 
 interface ProfileHeaderProps {
     profile: ProfileData | null;
@@ -95,12 +99,15 @@ export default function ProfileHeader({
         );
     }
 
+
     return (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col md:flex-row items-start gap-6">
                 {/* Avatar */}
                 <div className="flex-shrink-0">
-                    {profile?.image ? (
+                    {!profile ? (
+                        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse border-2 border-gray-200" />
+                    ) : profile.image ? (
                         <Image
                             src={profile.image}
                             alt={profile.name || "User"}
@@ -110,7 +117,7 @@ export default function ProfileHeader({
                         />
                     ) : (
                         <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold border-2 border-gray-200">
-                            {profile?.name?.charAt(0).toUpperCase() || "U"}
+                            {profile.name?.charAt(0).toUpperCase() || "U"}
                         </div>
                     )}
                 </div>
@@ -122,20 +129,24 @@ export default function ProfileHeader({
                         <div className="flex items-center justify-center">
                             <User size={18} className="text-gray-400" />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-900">{profile?.name || "User"}</h2>
+                        <h2 className="text-xl font-bold text-gray-900">{profile ? profile.name || "User" : <InlineSkeleton width="w-32" height="h-6" />}</h2>
 
                         {/* Email */}
                         <div className="flex items-center justify-center">
                             <Mail size={16} className="text-gray-400" />
                         </div>
-                        <p className="text-gray-500 text-sm flex items-center">{profile?.email}</p>
+                        <p className="text-gray-500 text-sm flex items-center">{profile ? profile.email : <InlineSkeleton width="w-40" />}</p>
 
                         {/* Join Date */}
                         <div className="flex items-center justify-center">
                             <Calendar size={16} className="text-gray-400" />
                         </div>
                         <p className="text-gray-500 text-sm flex items-center">
-                            Joined {stats?.joinDate ? new Date(stats.joinDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}
+                            {stats ? (
+                                <>Joined {stats.joinDate ? new Date(stats.joinDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}</>
+                            ) : (
+                                <InlineSkeleton width="w-36" />
+                            )}
                         </p>
 
                         {/* Email Notifications Toggle */}
@@ -164,16 +175,22 @@ export default function ProfileHeader({
                         </div>
                         <div className="flex items-center">
                             <div className="flex items-center gap-1 justify-start flex-1">
-                                {Array.from({ length: stats?.freezeCount ?? 5 }).map((_, i) => (
-                                    <Image
-                                        key={i}
-                                        src="/images/ice-cube.png"
-                                        alt="Freeze"
-                                        width={22}
-                                        height={22}
-                                        className="drop-shadow-sm"
-                                    />
-                                ))}
+                                {stats ? (
+                                    Array.from({ length: stats.freezeCount ?? 0 }).map((_, i) => (
+                                        <Image
+                                            key={i}
+                                            src="/images/ice-cube.png"
+                                            alt="Freeze"
+                                            width={22}
+                                            height={22}
+                                            className="drop-shadow-sm"
+                                        />
+                                    ))
+                                ) : (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="w-[22px] h-[22px] bg-gray-200 rounded animate-pulse" />
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>

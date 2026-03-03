@@ -28,6 +28,9 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
     const [isShaking, setIsShaking] = useState(false);
     const [correctCount, setCorrectCount] = useState(0);
     const [lives, setLives] = useState(MAX_LIVES);
+    const [wrongCount, setWrongCount] = useState(0);
+    const correctCountRef = useRef(0);
+    const wrongCountRef = useRef(0);
     const [isComplete, setIsComplete] = useState(false);
     const [isGameOver, setIsGameOver] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -47,17 +50,19 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
         start();
         return () => {
             const minutes = getMinutes();
-            if (minutes > 0) saveActivity(minutes);
+            if (minutes > 0 || correctCountRef.current > 0 || wrongCountRef.current > 0) {
+                saveActivity(minutes, correctCountRef.current, wrongCountRef.current);
+            }
         };
     }, []);
 
-    const saveActivity = async (minutes: number) => {
+    const saveActivity = async (minutes: number, correct?: number, wrong?: number) => {
         const today = new Date().toISOString().split('T')[0];
         try {
             await fetch('/api/activity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ minutes, date: today })
+                body: JSON.stringify({ minutes, date: today, correct, wrong })
             });
         } catch (error) {
             console.error('Failed to save activity:', error);
@@ -139,6 +144,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
             setIsCorrect(true);
             const newCorrectCount = correctCount + 1;
             setCorrectCount(prev => prev + 1);
+            correctCountRef.current = newCorrectCount;
 
             // Speak the word when correct
             speakWord(currentVocab.word);
@@ -156,6 +162,11 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
             // Shake animation
             setIsShaking(true);
             setTimeout(() => setIsShaking(false), 500);
+
+            setWrongCount(prev => {
+                wrongCountRef.current = prev + 1;
+                return prev + 1;
+            });
 
             // Lose a life immediately
             const newLives = lives - 1;
@@ -204,6 +215,9 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
         setIsFlipped(false);
         setCorrectCount(0);
         setLives(MAX_LIVES);
+        setWrongCount(0);
+        correctCountRef.current = 0;
+        wrongCountRef.current = 0;
         setIsComplete(false);
         setIsGameOver(false);
         setHasShownStreakDialog(false);
@@ -217,7 +231,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
 
     const handleConfirmClose = () => {
         const minutes = getMinutes();
-        if (minutes > 0) saveActivity(minutes);
+        if (minutes > 0 || correctCount > 0 || wrongCount > 0) saveActivity(minutes, correctCount, wrongCount);
         setShowCloseDialog(false);
         onComplete();
     };

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { minutes, date } = body;
+        const { minutes, date, correct, wrong } = body;
 
         if (!minutes || minutes < 1 || !date) {
             return NextResponse.json(
@@ -49,14 +49,16 @@ export async function POST(request: NextRequest) {
 
         if (existingLogIndex !== undefined && existingLogIndex !== -1) {
             // Update existing entry
+            const incFields: Record<string, number> = {
+                "activityLog.$.minutes": minutes,
+                activeMinutes: minutes,
+            };
+            if (correct) incFields["activityLog.$.correct"] = correct;
+            if (wrong) incFields["activityLog.$.wrong"] = wrong;
+
             await usersCollection.updateOne(
                 { googleId, "activityLog.date": user.activityLog[existingLogIndex].date },
-                {
-                    $inc: {
-                        "activityLog.$.minutes": minutes,
-                        activeMinutes: minutes
-                    }
-                }
+                { $inc: incFields }
             );
         } else {
             // Add new entry
@@ -66,7 +68,9 @@ export async function POST(request: NextRequest) {
                     $push: {
                         activityLog: {
                             date: activityDate,
-                            minutes: minutes
+                            minutes: minutes,
+                            correct: correct || 0,
+                            wrong: wrong || 0,
                         }
                     } as any,
                     $inc: { activeMinutes: minutes }
@@ -134,8 +138,10 @@ export async function GET(request: NextRequest) {
 
             activity.push({
                 day: days[i],
-                fullDate: dateStr, // useful for tooltips if needed
+                fullDate: dateStr,
                 minutes: dayLog ? dayLog.minutes : 0,
+                correct: dayLog?.correct || 0,
+                wrong: dayLog?.wrong || 0,
             });
         }
 
