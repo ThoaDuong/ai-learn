@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDatabase } from "@/lib/mongodb";
 import { isConsecutiveDay, isSameDay } from "@/common/utils/streakUtils";
+import { calculateMissedDays, formatLocalDate } from "@/common/utils/streakFreezeUtils";
+import { useMultipleFreezes } from "@/lib/streakFreezeDb";
 
 export async function POST(request: NextRequest) {
     try {
@@ -53,15 +55,34 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Calculate new streak
+        // Calculate new streak with freeze support
         let newStreak = 1;
-        if (user.lastStreakDate && isConsecutiveDay(user.lastStreakDate, now)) {
-            newStreak = (user.streak || 0) + 1;
-        } else if (user.streak && user.lastStreakDate && isSameDay(user.lastStreakDate, now)) {
-            // Should be caught by check above, but safe fallback
-            newStreak = user.streak;
+        let freezesUsedNow = 0;
+        if (user.lastStreakDate) {
+            if (isConsecutiveDay(user.lastStreakDate, now)) {
+                // Yesterday was active → continue streak
+                newStreak = (user.streak || 0) + 1;
+            } else {
+                // Gap detected → try to use freezes for missed days
+                const lastStreakDate = new Date(user.lastStreakDate);
+                const missedDays = calculateMissedDays(lastStreakDate);
+                const freezeCount = user.freezeCount ?? 5;
+
+                if (missedDays > 0 && freezeCount >= missedDays) {
+                    // Enough freezes → consume them and continue streak
+                    const missedDateStrings: string[] = [];
+                    for (let i = missedDays; i >= 1; i--) {
+                        const d = new Date(now);
+                        d.setDate(d.getDate() - i);
+                        missedDateStrings.push(formatLocalDate(d));
+                    }
+                    await useMultipleFreezes(user._id.toString(), missedDays, missedDateStrings);
+                    freezesUsedNow = missedDays;
+                    newStreak = (user.streak || 0) + 1;
+                }
+                // Else not enough freezes → newStreak stays 1 (reset)
+            }
         }
-        // Else gap -> reset to 1
 
         // Update user
         // Prepare update operation

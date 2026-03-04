@@ -7,7 +7,7 @@
  * Format a Date as YYYY-MM-DD using local timezone (not UTC).
  * This avoids timezone mismatch between server-stored dates and client rendering.
  */
-function formatLocalDate(date: Date): string {
+export function formatLocalDate(date: Date): string {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
