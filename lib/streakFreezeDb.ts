@@ -16,7 +16,7 @@ export interface FreezeResult {
  * Use multiple freezes to protect streak across missed days.
  * - Decrements freezeCount by the number of freezes used
  * - Adds each missed date to freezeDates array
- * - Updates lastStreakDate to yesterday so next cron run works correctly
+ * - Does NOT update lastStreakDate or streak — caller is responsible
  */
 export async function useMultipleFreezes(
     userId: string,
@@ -26,18 +26,12 @@ export async function useMultipleFreezes(
     const db = await getDatabase();
     const usersCollection = db.collection("users");
 
-    // Set lastStreakDate to yesterday so the streak chain continues
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(12, 0, 0, 0); // noon to avoid timezone edge cases
-
     const result = await usersCollection.updateOne(
         { _id: new ObjectId(userId) },
         {
             $inc: { freezeCount: -count },
             $addToSet: { freezeDates: { $each: missedDateStrings } },
             $set: {
-                lastStreakDate: yesterday,
                 updatedAt: new Date()
             }
         }

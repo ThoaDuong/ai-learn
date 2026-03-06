@@ -69,17 +69,53 @@ export async function GET(request: NextRequest) {
                         missedDateStrings.push(getDateStringDaysAgo(i));
                     }
 
-                    const freezeResult = await useMultipleFreezes(
-                        user._id.toString(),
-                        missedDays,
-                        missedDateStrings
-                    );
+                    // Filter out dates already covered by activity route
+                    const existingFreezeDates = new Set(user.freezeDates || []);
+                    const newMissedDates = missedDateStrings.filter(d => !existingFreezeDates.has(d));
 
-                    if (freezeResult.success) {
-                        results.freezeUsed++;
-                        results.freezesConsumedTotal += missedDays;
+                    if (newMissedDates.length === 0) {
+                        // All missed days already handled by activity route
+                        // Just update lastStreakDate so this user isn't re-processed
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        yesterday.setHours(12, 0, 0, 0);
+                        await usersCollection.updateOne(
+                            { _id: user._id },
+                            { $set: { lastStreakDate: yesterday } }
+                        );
+                        continue;
+                    }
+
+                    // Only consume freezes for dates not already covered
+                    if (freezeCount >= newMissedDates.length) {
+                        const freezeResult = await useMultipleFreezes(
+                            user._id.toString(),
+                            newMissedDates.length,
+                            newMissedDates
+                        );
+
+                        if (freezeResult.success) {
+                            // Update lastStreakDate to yesterday so streak chain continues
+                            const yesterday = new Date();
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            yesterday.setHours(12, 0, 0, 0);
+                            await usersCollection.updateOne(
+                                { _id: user._id },
+                                { $set: { lastStreakDate: yesterday } }
+                            );
+                            results.freezeUsed++;
+                            results.freezesConsumedTotal += newMissedDates.length;
+                        } else {
+                            results.errors++;
+                        }
                     } else {
-                        results.errors++;
+                        // Not enough freezes for remaining uncovered days — reset streak
+                        const resetResult = await resetStreak(user._id.toString());
+                        if (resetResult) {
+                            results.streakReset++;
+                        } else {
+                            results.errors++;
+                        }
                     }
                 } else {
                     // Not enough freezes — reset streak

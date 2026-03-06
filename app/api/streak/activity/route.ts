@@ -68,19 +68,30 @@ export async function POST(request: NextRequest) {
                 const missedDays = calculateMissedDays(lastStreakDate);
                 const freezeCount = user.freezeCount ?? 5;
 
-                if (missedDays > 0 && freezeCount >= missedDays) {
-                    // Enough freezes → consume them and continue streak
+                if (missedDays > 0) {
+                    // Generate missed date strings
                     const missedDateStrings: string[] = [];
                     for (let i = missedDays; i >= 1; i--) {
                         const d = new Date(now);
                         d.setDate(d.getDate() - i);
                         missedDateStrings.push(formatLocalDate(d));
                     }
-                    await useMultipleFreezes(user._id.toString(), missedDays, missedDateStrings);
-                    freezesUsedNow = missedDays;
-                    newStreak = (user.streak || 0) + 1;
+
+                    // Filter out dates already covered by cron
+                    const existingFreezeDates = new Set(user.freezeDates || []);
+                    const newMissedDates = missedDateStrings.filter(d => !existingFreezeDates.has(d));
+
+                    if (newMissedDates.length === 0) {
+                        // All missed days already covered by cron → just continue streak
+                        newStreak = (user.streak || 0) + 1;
+                    } else if (freezeCount >= newMissedDates.length) {
+                        // Enough freezes → consume only uncovered dates
+                        await useMultipleFreezes(user._id.toString(), newMissedDates.length, newMissedDates);
+                        freezesUsedNow = newMissedDates.length;
+                        newStreak = (user.streak || 0) + 1;
+                    }
+                    // Else not enough freezes → newStreak stays 1 (reset)
                 }
-                // Else not enough freezes → newStreak stays 1 (reset)
             }
         }
 
