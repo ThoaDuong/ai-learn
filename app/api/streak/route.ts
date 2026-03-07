@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDatabase } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
-import { calculateStreak } from "@/common/utils/streakUtils";
 
+/**
+ * Streak login check endpoint
+ * Called when user opens the app to:
+ * 1. Track login date and active days
+ * 2. Return current streak from DB (read-only, cron handles freeze/reset)
+ */
 export async function GET() {
     try {
         const session = await getServerSession(authOptions);
@@ -30,19 +34,13 @@ export async function GET() {
             );
         }
 
-        // Calculate and update streak if needed
-        // Check if streak is broken
         const now = new Date();
         const lastLoginDate = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
 
-        let newStreak = user.streak || 0;
         let newActiveDays = user.activeDays || 0;
         let shouldUpdate = false;
-        // updateFields is calculated inline below
 
-        // Calculate days difference
         if (lastLoginDate) {
-            // Reset hours to compare dates only
             const last = new Date(lastLoginDate);
             last.setHours(0, 0, 0, 0);
             const current = new Date(now);
@@ -51,18 +49,6 @@ export async function GET() {
             const diffTime = current.getTime() - last.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            if (diffDays > 1) {
-                // Gap > 1 day, reset streak
-                newStreak = 0;
-                shouldUpdate = true;
-            } else if (diffDays === 1) {
-                // Consecutive day: maintain streak (do not increment here, wait for activity)
-                // BUT if currentStreak is 0, should we set to 0? Yes.
-                // Nothing to change for streak count
-            } else if (diffDays === 0) {
-                // Same day, no change
-            }
-
             // Increment active days if new day
             if (diffDays >= 1) {
                 newActiveDays += 1;
@@ -70,7 +56,6 @@ export async function GET() {
             }
         } else {
             // First login
-            newStreak = 0; // Start at 0, wait for activity
             newActiveDays = 1;
             shouldUpdate = true;
         }
@@ -80,23 +65,18 @@ export async function GET() {
                 { _id: user._id },
                 {
                     $set: {
-                        streak: newStreak,
                         lastLoginDate: now,
                         activeDays: newActiveDays,
                         updatedAt: now,
                     },
                 }
             );
-
-            return NextResponse.json({
-                streak: newStreak,
-                updated: true,
-            });
         }
 
+        // Return current streak from DB (read-only, managed by cron + activity route)
         return NextResponse.json({
-            streak: newStreak,
-            updated: false,
+            streak: user.streak || 0,
+            updated: shouldUpdate,
         });
     } catch (error) {
         console.error("Streak API error:", error);
