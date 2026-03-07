@@ -4,8 +4,6 @@
     "version": "1.0.0",
     "description": "Highlight any word on the web to translate and save to your TLearn vocabulary.",
     "permissions": [
-        "activeTab",
-        "storage",
         "cookies"
     ],
     "host_permissions": [

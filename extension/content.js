@@ -14,6 +14,7 @@
     let floatingIcon = null;
     let translationPanel = null;
     let currentAuthInfo = null;
+    let translationEnabled = true;
 
     // ── Floating Icon ──
     function createFloatingIcon() {
@@ -99,7 +100,7 @@
         // Loading state
         translationPanel.innerHTML = `
             <div class="tlearn-panel-header">
-                <div class="tlearn-panel-logo">
+                <div class="tlearn-panel-logo" id="tlearn-logo-link" title="Open TLearn">
                     <img src="${chrome.runtime.getURL("icons/icon48.png")}" width="20" height="20" style="border-radius: 4px;" alt="TLearn">
                     <span>TLearn</span>
                 </div>
@@ -113,10 +114,18 @@
             </div>
         `;
 
+        // Add toggle footer
+        appendToggleFooter(translationPanel);
+
         translationPanel.classList.add("tlearn-visible");
 
         // Bind close
         document.getElementById("tlearn-close-btn")?.addEventListener("click", hidePanel);
+
+        // Bind logo click to open TLearn
+        document.getElementById("tlearn-logo-link")?.addEventListener("click", () => {
+            chrome.runtime.sendMessage({ type: "OPEN_TLEARN" });
+        });
 
         // Translate
         chrome.runtime.sendMessage({ type: "TRANSLATE", text }, (response) => {
@@ -290,8 +299,54 @@
         }
     }
 
+    // ── Toggle Footer ──
+    function appendToggleFooter(container) {
+        const footer = document.createElement("div");
+        footer.className = "tlearn-toggle-footer";
+        footer.innerHTML = `
+            <div class="tlearn-toggle-row">
+                <span class="tlearn-toggle-label">Show translate icon</span>
+                <label class="tlearn-toggle-switch">
+                    <input type="checkbox" id="tlearn-tab-toggle" ${translationEnabled ? "checked" : ""}>
+                    <span class="tlearn-toggle-slider"></span>
+                </label>
+            </div>
+        `;
+        container.appendChild(footer);
+
+        footer.querySelector("#tlearn-tab-toggle")?.addEventListener("change", (e) => {
+            chrome.runtime.sendMessage({
+                type: "TOGGLE_TRANSLATE",
+                enabled: e.target.checked
+            });
+        });
+    }
+
+    // ── Fetch initial state from background ──
+    chrome.runtime.sendMessage({ type: "GET_TRANSLATE_STATUS" }, (res) => {
+        if (chrome.runtime.lastError || !res) return;
+        translationEnabled = res.enabled;
+    });
+
+    // ── Listen for broadcast from background ──
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        if (msg.type === "TRANSLATE_STATUS_CHANGED") {
+            translationEnabled = msg.enabled;
+            if (!translationEnabled) {
+                hideIcon();
+                hidePanel();
+            }
+            // Update toggle checkbox if panel is open
+            const toggle = document.getElementById("tlearn-tab-toggle");
+            if (toggle) toggle.checked = translationEnabled;
+        }
+    });
+
     // ── Event Listeners ──
     document.addEventListener("mouseup", (e) => {
+        // Skip if translation is disabled for this tab
+        if (!translationEnabled) return;
+
         // Ignore clicks inside our own elements
         if (e.target.closest("#tlearn-ext-icon") || e.target.closest("#tlearn-ext-panel")) {
             return;

@@ -50,4 +50,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         chrome.runtime.sendMessage({ type: "OPEN_TLEARN" });
         window.close();
     });
+
+    // Toggle: query background for current status
+    const toggleEl = document.getElementById("popup-tab-toggle");
+    chrome.runtime.sendMessage({ type: "GET_TRANSLATE_STATUS" }, (res) => {
+        if (chrome.runtime.lastError || !res) return;
+        toggleEl.checked = res.enabled;
+    });
+
+    toggleEl?.addEventListener("change", () => {
+        chrome.runtime.sendMessage({
+            type: "TOGGLE_TRANSLATE",
+            enabled: toggleEl.checked
+        });
+    });
 });

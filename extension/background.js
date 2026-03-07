@@ -11,6 +11,9 @@ function getBaseUrl() {
     return PROD_URL;
 }
 
+// Global toggle state
+let showTranslateIcon = true;
+
 // Get session cookie from TLearn domain
 async function getSessionCookie() {
     const urls = [PROD_URL, DEV_URL];
@@ -198,5 +201,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === "LOGIN") {
         chrome.tabs.create({ url: `${getBaseUrl()}/api/auth/signin` });
         return false;
+    }
+
+    if (msg.type === "GET_TRANSLATE_STATUS") {
+        sendResponse({ enabled: showTranslateIcon });
+        return true;
+    }
+
+    if (msg.type === "TOGGLE_TRANSLATE") {
+        showTranslateIcon = msg.enabled;
+        // Broadcast to all tabs
+        chrome.tabs.query({}, (tabs) => {
+            for (const tab of tabs) {
+                chrome.tabs.sendMessage(tab.id, {
+                    type: "TRANSLATE_STATUS_CHANGED",
+                    enabled: showTranslateIcon
+                }).catch(() => { });
+            }
+        });
+        sendResponse({ enabled: showTranslateIcon });
+        return true;
     }
 });
