@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Sparkles, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +12,19 @@ export default function SentenceTab() {
     const [isTranslating, setIsTranslating] = useState(false);
     const [grammarResult, setGrammarResult] = useState<GrammarCheckResult | null>(null);
     const [isCheckingGrammar, setIsCheckingGrammar] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const autoResize = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    }, []);
+
+    useEffect(() => {
+        autoResize();
+    }, [input, autoResize]);
 
     const translateText = useDebouncedCallback(async (text: string) => {
         if (!text.trim()) {
@@ -67,9 +80,9 @@ export default function SentenceTab() {
 
     return (
         <div className="w-full max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-6 h-[300px]">
+            <div className="grid md:grid-cols-2 gap-6">
                 {/* Left Block - Input */}
-                <div className="flex flex-col h-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg overflow-hidden focus-within:border-blue-500/50 transition-colors">
+                <div className="flex flex-col h-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg focus-within:border-blue-500/50 transition-colors">
                     <div className="px-4 py-3 bg-gray-50/50 border-b border-gray-100/50 flex justify-between items-center">
                         <span className="font-semibold text-gray-700 text-sm tracking-wide">ENGLISH</span>
                         <button
@@ -81,16 +94,23 @@ export default function SentenceTab() {
                             Check Grammar
                         </button>
                     </div>
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type your sentence..."
-                        className="flex-1 w-full p-4 resize-none outline-none text-lg text-gray-800 placeholder:text-gray-400"
-                    />
+                    <div className="relative">
+                        <textarea
+                            ref={textareaRef}
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            maxLength={2000}
+                            placeholder="Type your sentence..."
+                            className="w-full p-4 pb-8 resize-none outline-none text-lg text-gray-800 placeholder:text-gray-400 min-h-[200px] overflow-hidden bg-transparent"
+                        />
+                        <span className="absolute bottom-2 right-3 text-xs text-gray-400">
+                            {input.length} / 2000
+                        </span>
+                    </div>
                 </div>
 
                 {/* Right Block - Output */}
-                <div className="flex flex-col h-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg overflow-hidden bg-gradient-to-br from-gray-50/50 to-white/50">
+                <div className="flex flex-col h-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg bg-gradient-to-br from-gray-50/50 to-white/50">
                     <div className="px-4 py-3 bg-blue-50/30 border-b border-gray-100/50">
                         <span className="font-semibold text-blue-700 text-sm tracking-wide">VIETNAMESE</span>
                     </div>
@@ -100,7 +120,7 @@ export default function SentenceTab() {
                                 <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                             </div>
                         ) : null}
-                        <p className="text-lg text-gray-800 leading-relaxed">
+                        <p className="text-lg text-gray-800 leading-relaxed whitespace-pre-wrap">
                             {translation || <span className="text-gray-400 italic">Translation will appear here...</span>}
                         </p>
                     </div>
