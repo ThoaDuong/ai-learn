@@ -5,19 +5,20 @@ let genAI: GoogleGenerativeAI | null = null;
 
 /**
  * Ordered list of Gemini models to try.
- * When a model hits rate limit, the next model in the list is used.
+ * When a model hits rate limit or is unavailable, the next model is used.
  */
 const MODEL_FALLBACK_CHAIN = [
-    "gemini-3.0-flash",
+    "gemini-3-flash",
+    "gemini-3.1-pro",
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-3.0-flash-preview",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash-lite",
     "gemini-2.0-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
 ] as const;
 
-/** Index of the current "preferred" model — advances on rate-limit */
+/** Index of the current "preferred" model — advances on rate-limit or model error */
 let currentModelIndex = 0;
 
 /** Timestamp when the current model was rate-limited (to reset after cooldown) */
@@ -37,38 +38,19 @@ function getGenAI() {
 }
 
 /**
- * Get a GenerativeModel instance by its model ID string.
+ * Get a GenerativeModel instance with optional maxOutputTokens.
  */
-function getModelByName(modelName: string): GenerativeModel {
+function getModelByName(
+    modelName: string,
+    maxOutputTokens?: number
+): GenerativeModel {
     return getGenAI().getGenerativeModel({
         model: modelName,
         generationConfig: {
             responseMimeType: "application/json",
+            ...(maxOutputTokens && { maxOutputTokens }),
         },
     });
-}
-
-/**
- * Get the current best model, respecting cooldown logic.
- * If we moved away from the primary model due to rate limiting,
- * try to go back to it after the cooldown period.
- */
-function getCurrentModel(): { model: GenerativeModel; modelName: string } {
-    // Reset to primary model after cooldown
-    if (
-        currentModelIndex > 0 &&
-        rateLimitedAt &&
-        Date.now() - rateLimitedAt > MODEL_COOLDOWN_MS
-    ) {
-        console.log(
-            `[Gemini] Cooldown expired, resetting to primary model: ${MODEL_FALLBACK_CHAIN[0]}`
-        );
-        currentModelIndex = 0;
-        rateLimitedAt = null;
-    }
-
-    const modelName = MODEL_FALLBACK_CHAIN[currentModelIndex];
-    return { model: getModelByName(modelName), modelName };
 }
 
 /**
@@ -81,6 +63,21 @@ export function isRateLimitError(error: unknown): boolean {
         message.includes("quota") ||
         message.includes("RESOURCE_EXHAUSTED") ||
         message.includes("rate")
+    );
+}
+
+/**
+ * Check if an error means the model is unavailable (not found, not supported, etc.)
+ */
+function isModelUnavailableError(error: unknown): boolean {
+    const message = (error as Error)?.message || "";
+    return (
+        message.includes("404") ||
+        message.includes("not found") ||
+        message.includes("NOT_FOUND") ||
+        message.includes("is not supported") ||
+        message.includes("does not exist") ||
+        message.includes("INVALID_ARGUMENT")
     );
 }
 
@@ -98,7 +95,6 @@ export function extractJson(raw: string): string {
     // 2. Find the first { and match to its closing }
     const startIdx = raw.indexOf("{");
     if (startIdx === -1) {
-        // No object found, return trimmed raw (let JSON.parse throw a clear error)
         return raw.trim();
     }
 
@@ -135,7 +131,6 @@ export function extractJson(raw: string): string {
         }
     }
 
-    // If we couldn't find matching braces, return from start brace to end
     return raw.slice(startIdx).trim();
 }
 
@@ -145,45 +140,71 @@ export function isWord(text: string): boolean {
 }
 
 /**
- * Execute an API call with retry + automatic model fallback.
+ * Execute an API call with retry + automatic model fallback using streaming.
  *
  * Strategy:
- * 1. Try the current model up to `retriesPerModel` times with exponential backoff.
- * 2. If all retries fail due to rate limiting, switch to the next model in the chain.
- * 3. Repeat until all models are exhausted.
- * 4. Non-rate-limit errors are thrown immediately.
+ * 1. Try the current model with generateContentStream for faster TTFB.
+ * 2. Rate-limit errors: retry up to `retriesPerModel` times with exponential backoff.
+ * 3. Model-unavailable errors: skip to next model immediately (no retries).
+ * 4. Other errors: throw immediately.
+ * 5. After cooldown, reset to primary model automatically.
  */
-export async function withRetry<T>(
-    fn: (model: GenerativeModel) => Promise<T>,
+export async function withRetry(
+    prompt: string,
+    maxOutputTokens?: number,
     retriesPerModel = 2,
     baseDelay = 2000
-): Promise<T> {
+): Promise<string> {
     let lastError: Error | null = null;
 
-    // Start from current model index and try each fallback
+    // Reset to primary model after cooldown period
+    if (
+        currentModelIndex > 0 &&
+        rateLimitedAt &&
+        Date.now() - rateLimitedAt > MODEL_COOLDOWN_MS
+    ) {
+        console.log(
+            `[Gemini] Cooldown expired, resetting to primary model: ${MODEL_FALLBACK_CHAIN[0]}`
+        );
+        currentModelIndex = 0;
+        rateLimitedAt = null;
+    }
+
     const startIndex = currentModelIndex;
 
     for (let modelIdx = 0; modelIdx < MODEL_FALLBACK_CHAIN.length; modelIdx++) {
         const actualIdx =
             (startIndex + modelIdx) % MODEL_FALLBACK_CHAIN.length;
         const modelName = MODEL_FALLBACK_CHAIN[actualIdx];
-        const model = getModelByName(modelName);
+        const model = getModelByName(modelName, maxOutputTokens);
 
         for (let retry = 0; retry < retriesPerModel; retry++) {
             try {
-                const result = await fn(model);
+                // Use streaming for faster time-to-first-byte
+                const streamResult = await model.generateContentStream(prompt);
 
-                // If we successfully used this model, prefer it going forward
+                // Collect all chunks into full text
+                let fullText = "";
+                for await (const chunk of streamResult.stream) {
+                    fullText += chunk.text();
+                }
+
+                // Success — prefer this model going forward
                 if (currentModelIndex !== actualIdx) {
-                    console.log(
-                        `[Gemini] Switched to model: ${modelName}`
-                    );
+                    console.log(`[Gemini] Using model: ${modelName}`);
                     currentModelIndex = actualIdx;
                 }
 
-                return result;
+                return fullText;
             } catch (error) {
                 lastError = error as Error;
+
+                if (isModelUnavailableError(error)) {
+                    console.log(
+                        `[Gemini] ${modelName} unavailable, skipping...`
+                    );
+                    break; // break retry loop, go to next model
+                }
 
                 if (isRateLimitError(error)) {
                     const delay = baseDelay * Math.pow(2, retry);
@@ -193,21 +214,23 @@ export async function withRetry<T>(
                     await new Promise((resolve) =>
                         setTimeout(resolve, delay)
                     );
-                } else {
-                    // Non-rate-limit error → throw immediately
-                    throw error;
+                    continue;
                 }
+
+                // Non-recoverable error → throw immediately
+                throw error;
             }
         }
 
-        // All retries exhausted for this model → move to next
+        // This model exhausted or unavailable → advance to next
+        const nextIdx = (actualIdx + 1) % MODEL_FALLBACK_CHAIN.length;
         console.log(
-            `[Gemini] ${modelName} exhausted, falling back to next model...`
+            `[Gemini] ${modelName} failed, trying ${MODEL_FALLBACK_CHAIN[nextIdx]}...`
         );
+        currentModelIndex = nextIdx;
         rateLimitedAt = Date.now();
     }
 
-    // All models exhausted
     console.error("[Gemini] All models exhausted. Throwing last error.");
     throw lastError;
 }
@@ -217,42 +240,17 @@ export async function analyzeText(text: string): Promise<TranslationResult> {
 
     if (isWord(trimmedText)) {
         const prompt = `Analyze the English word "${trimmedText}".
-    
-First, check if this is a valid English word.
-- If it is NOT a valid English word (e.g. typo, nonsense, or not English), return a JSON object with this structure:
-{
-  "type": "invalid_word",
-  "word": "${trimmedText}",
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
-}
-- If it IS a valid English word, return a JSON object with this structure:
-{
-  "type": "word",
-  "word": "${trimmedText}",
-  "meaning": "Vietnamese meaning of the word",
-  "partOfSpeech": "noun or verb or adjective or adverb or preposition or conjunction or pronoun or interjection",
-  "level": "CEFR level: A1 or A2 or B1 or B2 or C1 or C2",
-  "phonetic": "IPA phonetic transcription using American English pronunciation, e.g. /həˈloʊ/",
-  "example": "An example sentence using this word in English",
-  "exampleTranslation": "Vietnamese translation of the example sentence"
-}
-
-Ensure the response is valid JSON only, no markdown.`;
+Return JSON only. If NOT a valid English word: {"type":"invalid_word","word":"${trimmedText}","suggestions":["s1","s2","s3"]}
+If valid: {"type":"word","word":"${trimmedText}","meaning":"Vietnamese meaning","partOfSpeech":"noun/verb/adj/adv/prep/conj/pron/intj","level":"A1/A2/B1/B2/C1/C2","phonetic":"/IPA/","example":"example sentence","exampleTranslation":"Vietnamese translation of example"}`;
 
         try {
-            const result = await withRetry((model) =>
-                model.generateContent(prompt)
-            );
-            const response = result.response.text();
-
+            const response = await withRetry(prompt, 256);
             const parsed = JSON.parse(extractJson(response));
 
-            // Safety check to ensure one of the expected types is returned
             if (parsed.type === "word" || parsed.type === "invalid_word") {
                 return parsed as TranslationResult;
             }
 
-            // Fallback if type is missing but looks like a word result
             if (parsed.meaning) {
                 parsed.type = "word";
                 return parsed as TranslationResult;
@@ -260,52 +258,24 @@ Ensure the response is valid JSON only, no markdown.`;
 
             throw new Error("Invalid response format");
         } catch (error) {
-            const errorMessage = (error as Error).message || "Unknown error";
-
             if (isRateLimitError(error)) {
                 throw new Error("RATE_LIMIT");
             }
-            return {
-                type: "word",
-                word: trimmedText,
-                meaning: `Error: ${errorMessage}`,
-                partOfSpeech: "error",
-                level: "error",
-                phonetic: "",
-                example: "",
-                exampleTranslation: "",
-            };
+            throw error;
         }
     } else {
-        const prompt = `Translate the following English sentence to Vietnamese and return a JSON object with this exact structure:
-{
-  "type": "sentence",
-  "original": "${trimmedText}",
-  "translation": "Vietnamese translation"
-}
-
-Sentence to translate: "${trimmedText}"`;
+        const prompt = `Translate to Vietnamese. Return JSON only: {"type":"sentence","original":"${trimmedText}","translation":"Vietnamese translation"}`;
 
         try {
-            const result = await withRetry((model) =>
-                model.generateContent(prompt)
-            );
-            const response = result.response.text();
-
+            const response = await withRetry(prompt, 512);
             const parsed = JSON.parse(extractJson(response));
             parsed.type = "sentence";
             return parsed as TranslationResult;
         } catch (error) {
-            const errorMessage = (error as Error).message || "Unknown error";
-
             if (isRateLimitError(error)) {
                 throw new Error("RATE_LIMIT");
             }
-            return {
-                type: "sentence",
-                original: trimmedText,
-                translation: `Error: ${errorMessage}`,
-            };
+            throw error;
         }
     }
 }
@@ -313,32 +283,13 @@ Sentence to translate: "${trimmedText}"`;
 export async function checkGrammar(text: string): Promise<GrammarCheckResult> {
     const trimmedText = text.trim();
 
-    const prompt = `Analyze the grammar of the following English sentence: "${trimmedText}"
-
-    Return a JSON object with this exact structure:
-    {
-      "isCorrect": boolean, // true if the sentence is grammatically correct
-      "correction": "Corrected sentence if there were errors, or the original sentence if correct",
-      "explanation": "Explanation of the errors and how they were fixed. If correct, say 'The sentence is grammatically correct.'",
-      "variations": {
-        "formal": "A more formal version of the sentence",
-        "friendly": "A more friendly/casual version of the sentence"
-      }
-    }
-    
-    Ensure the response is valid JSON only, no markdown.`;
+    const prompt = `Check grammar of: "${trimmedText}". Return JSON only: {"isCorrect":boolean,"correction":"corrected sentence","explanation":"explanation","variations":{"formal":"formal version","friendly":"casual version"}}`;
 
     try {
-        const result = await withRetry((model) =>
-            model.generateContent(prompt)
-        );
-        const response = result.response.text();
-
-        const parsed = JSON.parse(extractJson(response));
-        return parsed;
+        const response = await withRetry(prompt, 512);
+        return JSON.parse(extractJson(response));
     } catch (error) {
         console.error("Grammar check error:", error);
-        const errorMessage = (error as Error).message || "Unknown error";
         if (isRateLimitError(error)) {
             throw new Error("RATE_LIMIT");
         }
