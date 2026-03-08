@@ -89,7 +89,7 @@ export function extractJson(raw: string): string {
     // 1. Try stripping markdown code fences first
     const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
     if (fenceMatch) {
-        return fenceMatch[1].trim();
+        return sanitizeJsonString(fenceMatch[1].trim());
     }
 
     // 2. Find the first { and match to its closing }
@@ -126,12 +126,24 @@ export function extractJson(raw: string): string {
         else if (ch === "}") {
             depth--;
             if (depth === 0) {
-                return raw.slice(startIdx, i + 1);
+                return sanitizeJsonString(raw.slice(startIdx, i + 1));
             }
         }
     }
 
-    return raw.slice(startIdx).trim();
+    return sanitizeJsonString(raw.slice(startIdx).trim());
+}
+
+/**
+ * Escape unescaped newlines/tabs inside JSON string values.
+ * Gemini sometimes returns literal newlines in Vietnamese text.
+ */
+function sanitizeJsonString(json: string): string {
+    // Replace literal newlines/tabs inside strings with escaped versions
+    return json.replace(
+        /"(?:[^"\\]|\\.)*"/g,
+        (match) => match.replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t")
+    );
 }
 
 export function isWord(text: string): boolean {
@@ -180,14 +192,8 @@ export async function withRetry(
 
         for (let retry = 0; retry < retriesPerModel; retry++) {
             try {
-                // Use streaming for faster time-to-first-byte
-                const streamResult = await model.generateContentStream(prompt);
-
-                // Collect all chunks into full text
-                let fullText = "";
-                for await (const chunk of streamResult.stream) {
-                    fullText += chunk.text();
-                }
+                const result = await model.generateContent(prompt);
+                const fullText = result.response.text();
 
                 // Success — prefer this model going forward
                 if (currentModelIndex !== actualIdx) {
@@ -244,7 +250,7 @@ Return JSON only. If NOT a valid English word: {"type":"invalid_word","word":"${
 If valid: {"type":"word","word":"${trimmedText}","meaning":"Vietnamese meaning","partOfSpeech":"noun/verb/adj/adv/prep/conj/pron/intj","level":"A1/A2/B1/B2/C1/C2","phonetic":"/IPA/","example":"example sentence","exampleTranslation":"Vietnamese translation of example"}`;
 
         try {
-            const response = await withRetry(prompt, 256);
+            const response = await withRetry(prompt, 1024);
             const parsed = JSON.parse(extractJson(response));
 
             if (parsed.type === "word" || parsed.type === "invalid_word") {

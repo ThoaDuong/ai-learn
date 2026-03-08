@@ -132,7 +132,7 @@ export default function KeywordTab() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100"
+                        className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 relative z-20"
                     >
                         {error}
                     </motion.div>
@@ -170,7 +170,7 @@ export default function KeywordTab() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl">
+                            <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl relative z-20">
                                 This tab is for looking up words. Use the Sentence tab to translate full sentences.
                             </div>
                         )}
