@@ -57,11 +57,20 @@ export async function resetStreak(userId: string): Promise<boolean> {
     const db = await getDatabase();
     const usersCollection = db.collection("users");
 
+    // Fetch user to get current streak and highestStreak
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) return false;
+
+    const currentStreak = user.streak || 0;
+    const currentHighestStreak = user.highestStreak || 0;
+    const newHighestStreak = Math.max(currentStreak, currentHighestStreak);
+
     const result = await usersCollection.updateOne(
         { _id: new ObjectId(userId) },
         {
             $set: {
                 streak: 0,
+                highestStreak: newHighestStreak,
                 updatedAt: new Date()
             }
         }

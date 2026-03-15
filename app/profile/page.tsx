@@ -114,7 +114,10 @@ function ProfileContent() {
                         onStartEditing={() => setIsEditing(true)}
                         onToggleNotifications={handleToggleNotifications}
                     />
-                    <StreakCard currentStreak={stats?.currentStreak || 0} />
+                    <StreakCard 
+                        currentStreak={stats?.currentStreak || 0}
+                        highestStreak={stats?.highestStreak || 0}
+                    />
                 </motion.div>
 
                 {/* Tabs */}

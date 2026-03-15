@@ -170,29 +170,33 @@ export default function ProfileHeader({
                         </div>
 
                         {/* Freeze Count Display - ice cubes */}
-                        <div className="flex items-center justify-center">
-                            <Box size={18} className="text-gray-400" />
-                        </div>
-                        <div className="flex items-center">
-                            <div className="flex items-center gap-1 justify-start flex-1">
-                                {stats ? (
-                                    Array.from({ length: stats.freezeCount ?? 0 }).map((_, i) => (
-                                        <Image
-                                            key={i}
-                                            src="/images/ice-cube.png"
-                                            alt="Freeze"
-                                            width={22}
-                                            height={22}
-                                            className="drop-shadow-sm"
-                                        />
-                                    ))
-                                ) : (
-                                    Array.from({ length: 5 }).map((_, i) => (
-                                        <div key={i} className="w-[22px] h-[22px] bg-gray-200 rounded animate-pulse" />
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                        {(!stats || (stats.freezeCount ?? 0) > 0) && (
+                            <>
+                                <div className="flex items-center justify-center">
+                                    <Box size={18} className="text-gray-400" />
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="flex items-center gap-1 justify-start flex-1">
+                                        {stats ? (
+                                            Array.from({ length: stats.freezeCount ?? 0 }).map((_, i) => (
+                                                <Image
+                                                    key={i}
+                                                    src="/images/ice-cube.png"
+                                                    alt="Freeze"
+                                                    width={22}
+                                                    height={22}
+                                                    className="drop-shadow-sm"
+                                                />
+                                            ))
+                                        ) : (
+                                            Array.from({ length: 5 }).map((_, i) => (
+                                                <div key={i} className="w-[22px] h-[22px] bg-gray-200 rounded animate-pulse" />
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 

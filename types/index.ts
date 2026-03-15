@@ -19,6 +19,7 @@ export interface User {
   activeMinutes?: number;
   activityLog?: { date: Date; minutes: number }[];
   emailNotifications?: boolean; // defaults to true if undefined
+  highestStreak?: number; // all-time highest consecutive days
 }
 
 // Vocabulary saved by user
@@ -143,6 +144,7 @@ export interface ProfileStats {
   activeDates?: string[];
   freezeCount?: number;
   freezeDates?: string[];
+  highestStreak?: number;
 }
 
 /** Weekly activity data point */

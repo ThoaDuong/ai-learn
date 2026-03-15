@@ -43,6 +43,7 @@ export async function GET() {
                 activeDates: user.streakDates || [],
                 freezeCount: user.freezeCount ?? 5,
                 freezeDates: user.freezeDates || [],
+                highestStreak: user.highestStreak ?? 0,
             },
             weeklyActivity: (() => {
                 const activity = [];

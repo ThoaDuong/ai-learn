@@ -94,12 +94,17 @@ export async function POST(request: NextRequest) {
                 }
             }
         }
+        
+        // Calculate highestStreak
+        const currentHighestStreak = user.highestStreak || 0;
+        const newHighestStreak = Math.max(currentHighestStreak, newStreak);
 
         // Update user
         // Prepare update operation
         const updateOp: any = {
             $set: {
                 streak: newStreak,
+                highestStreak: newHighestStreak,
                 lastStreakDate: now,
                 updatedAt: now
             },
