@@ -10,7 +10,8 @@ import SuccessAlert from "@/common/components/SuccessAlert";
 import { useStreak } from "@/common/contexts/StreakContext";
 
 interface VocabularyWord {
-    _id?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _id?: any;
     word: string;
     meaning: string;
     partOfSpeech?: string;
@@ -97,8 +98,8 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
             slidesInSnap.forEach((slideIndex: number) => {
                 if (isScrolling || slidesInView.indexOf(slideIndex) !== -1) {
                     if (engine.options.loop) {
-                        engine.slideLooper.loopPoints.forEach((loopItem: { index: number; target: () => { get: () => number } }) => {
-                            const target = loopItem.target().get();
+                        engine.slideLooper.loopPoints.forEach((loopItem) => {
+                            const target = loopItem.target();
                             if (slideIndex === loopItem.index && target !== 0) {
                                 const sign = Math.sign(target);
                                 if (sign === -1) diffToTarget = scrollSnap - (1 + scrollProgress);
