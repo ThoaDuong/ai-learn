@@ -122,8 +122,18 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
     // Carousel event handlers
     const onSelect = useCallback(() => {
         if (!emblaApi) return;
-        setSelectedIndex(emblaApi.selectedScrollSnap());
-    }, [emblaApi]);
+        const index = emblaApi.selectedScrollSnap();
+        setSelectedIndex(index);
+
+        // Auto-pronounce the active word
+        const activeWord = vocabularies[index]?.word;
+        if (activeWord) {
+            speak(activeWord, {
+                onStart: () => setSpeakingWord(activeWord),
+                onEnd: () => setSpeakingWord(null),
+            });
+        }
+    }, [emblaApi, vocabularies, speak]);
 
     const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
     const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
@@ -261,7 +271,7 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
+                        className="overflow-hidden p-4"
                     >
                         {/* Embla Carousel */}
                         <div className="relative">
@@ -311,9 +321,8 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
                                                                         <div className="flex items-center gap-2 flex-wrap">
                                                                             {vocab.level && (
                                                                                 <span
-                                                                                    className={`px-2.5 py-1 text-xs font-bold text-white rounded-full ${
-                                                                                        levelColors[vocab.level] || "bg-gray-400"
-                                                                                    }`}
+                                                                                    className={`px-2.5 py-1 text-xs font-bold text-white rounded-full ${levelColors[vocab.level] || "bg-gray-400"
+                                                                                        }`}
                                                                                 >
                                                                                     {vocab.level}
                                                                                 </span>
@@ -326,11 +335,10 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
                                                                         </div>
                                                                         <button
                                                                             onClick={(e) => handleSpeak(vocab.word, e)}
-                                                                            className={`p-2 rounded-full transition-all cursor-pointer ${
-                                                                                speakingWord === vocab.word
+                                                                            className={`p-2 rounded-full transition-all cursor-pointer ${speakingWord === vocab.word
                                                                                     ? "bg-blue-100 text-blue-600"
                                                                                     : "hover:bg-gray-100 text-gray-400 hover:text-blue-600"
-                                                                            }`}
+                                                                                }`}
                                                                             title="Pronounce word"
                                                                         >
                                                                             <Volume2
@@ -407,11 +415,10 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
                                                                                 handleSaveWord(vocab);
                                                                             }}
                                                                             disabled={isSaving || isSaved}
-                                                                            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-sm ${
-                                                                                isSaved
+                                                                            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-sm ${isSaved
                                                                                     ? "bg-green-600 text-white"
                                                                                     : "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
-                                                                            }`}
+                                                                                }`}
                                                                         >
                                                                             <Bookmark size={14} />
                                                                             {isSaving
@@ -443,22 +450,20 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
                             <button
                                 onClick={scrollPrev}
                                 disabled={!canScrollPrev}
-                                className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all cursor-pointer ${
-                                    canScrollPrev
+                                className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all cursor-pointer ${canScrollPrev
                                         ? "hover:bg-gray-50 hover:shadow-xl text-gray-700"
                                         : "opacity-30 cursor-not-allowed text-gray-300"
-                                }`}
+                                    }`}
                             >
                                 <ChevronLeft size={20} />
                             </button>
                             <button
                                 onClick={scrollNext}
                                 disabled={!canScrollNext}
-                                className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all cursor-pointer ${
-                                    canScrollNext
+                                className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center transition-all cursor-pointer ${canScrollNext
                                         ? "hover:bg-gray-50 hover:shadow-xl text-gray-700"
                                         : "opacity-30 cursor-not-allowed text-gray-300"
-                                }`}
+                                    }`}
                             >
                                 <ChevronRight size={20} />
                             </button>

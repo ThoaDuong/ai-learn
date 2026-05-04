@@ -1,11 +1,12 @@
 "use client";
 
 import { motion, Variants } from "framer-motion";
-import { Zap, Timer, PenLine } from "lucide-react";
+import { Zap, Timer, PenLine, CheckCircle } from "lucide-react";
 
 interface GameModePickerProps {
     onSelectGame: (mode: "flash-choice" | "speed-run" | "master-writing") => void;
     disabledModes?: string[];
+    completedModes?: string[];
 }
 
 const gameModes = [
@@ -59,7 +60,7 @@ const cardVariants: Variants = {
     },
 };
 
-export default function GameModePicker({ onSelectGame, disabledModes = [] }: GameModePickerProps) {
+export default function GameModePicker({ onSelectGame, disabledModes = [], completedModes = [] }: GameModePickerProps) {
     return (
         <div>
             <h3 className="text-xl font-bold text-gray-800 mb-4">Practice Games</h3>
@@ -72,6 +73,7 @@ export default function GameModePicker({ onSelectGame, disabledModes = [] }: Gam
             >
                 {gameModes.map((mode) => {
                     const isDisabled = disabledModes.includes(mode.id);
+                    const isCompleted = completedModes.includes(mode.id);
 
                     return (
                         <motion.button
@@ -83,8 +85,15 @@ export default function GameModePicker({ onSelectGame, disabledModes = [] }: Gam
                             disabled={isDisabled}
                             className={`relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br ${mode.gradient} ${mode.shadowColor} shadow-lg text-left transition-all group cursor-pointer ${
                                 isDisabled ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
+                            } ${isCompleted ? "ring-3 ring-green-400 ring-offset-2" : ""}`}
                         >
+                            {/* Completed badge */}
+                            {isCompleted && (
+                                <div className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shadow-lg z-20">
+                                    <CheckCircle size={16} className="text-white" />
+                                </div>
+                            )}
+
                             {/* Glow */}
                             <div
                                 className={`absolute -top-12 -right-12 w-28 h-28 ${mode.bgGlow} rounded-full blur-2xl opacity-50 group-hover:opacity-90 transition-opacity duration-400`}
@@ -98,7 +107,9 @@ export default function GameModePicker({ onSelectGame, disabledModes = [] }: Gam
                                 <p className="text-white/85 text-xs leading-relaxed">{mode.description}</p>
 
                                 <div className="mt-3 flex items-center text-white/70 group-hover:text-white transition-colors">
-                                    <span className="text-xs font-medium">Start</span>
+                                    <span className="text-xs font-medium">
+                                        {isCompleted ? "Play Again" : "Start"}
+                                    </span>
                                     <motion.span
                                         className="ml-1.5 text-sm"
                                         animate={{ x: [0, 4, 0] }}

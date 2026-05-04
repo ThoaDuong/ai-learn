@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useSession } from "next-auth/react";
 import {
@@ -73,30 +73,71 @@ const cardVariants: Variants = {
 
 const BOX_SIZE = 50;
 
+interface ProgressEntry {
+    level: string;
+    box: number;
+    gameMode: string;
+}
+
+const GAME_MODES = ["flash-choice", "speed-run", "master-writing"];
+
 export default function LearnPage() {
     const { data: session, status } = useSession();
     const [levels, setLevels] = useState<LevelInfo[]>([]);
     const [groups, setGroups] = useState<VocabularyGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
+    const [progress, setProgress] = useState<ProgressEntry[]>([]);
 
-    // Fetch level stats
+    // Fetch level stats + progress in parallel (async-parallel rule)
     useEffect(() => {
-        const fetchLevels = async () => {
+        const fetchData = async () => {
             try {
-                const response = await fetch("/api/learn/vocabulary");
-                const data = await response.json();
-                if (data.levels) {
-                    setLevels(data.levels.filter((l: LevelInfo) => l.total > 0));
+                const [levelsRes, progressRes] = await Promise.all([
+                    fetch("/api/learn/vocabulary"),
+                    status === "authenticated"
+                        ? fetch("/api/learn/progress")
+                        : Promise.resolve(null),
+                ]);
+
+                const levelsData = await levelsRes.json();
+                if (levelsData.levels) {
+                    setLevels(levelsData.levels.filter((l: LevelInfo) => l.total > 0));
+                }
+
+                if (progressRes) {
+                    const progressData = await progressRes.json();
+                    setProgress(progressData.completed || []);
                 }
             } catch (error) {
-                console.error("Error fetching levels:", error);
+                console.error("Error fetching data:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchLevels();
-    }, []);
+        fetchData();
+    }, [status]);
+
+    // Build a Set for O(1) lookups (js-set-map-lookups rule)
+    const completedSet = useMemo(() => {
+        const set = new Set<string>();
+        progress.forEach((p) => set.add(`${p.level}-${p.box}-${p.gameMode}`));
+        return set;
+    }, [progress]);
+
+    const getBoxCompletionInfo = useCallback(
+        (level: string, box: number) => {
+            const completed = GAME_MODES.filter((mode) =>
+                completedSet.has(`${level}-${box}-${mode}`)
+            );
+            return {
+                completedModes: completed,
+                isFullyCompleted: completed.length === 3,
+                completedCount: completed.length,
+            };
+        },
+        [completedSet]
+    );
 
     // Fetch user groups
     const fetchGroups = useCallback(async () => {
@@ -213,6 +254,7 @@ export default function LearnPage() {
                                                                 boxNum === levelInfo.boxes
                                                                     ? levelInfo.total - (levelInfo.boxes - 1) * BOX_SIZE
                                                                     : BOX_SIZE;
+                                                            const boxInfo = getBoxCompletionInfo(levelInfo.level, boxNum);
 
                                                             return (
                                                                 <Link
@@ -225,32 +267,64 @@ export default function LearnPage() {
                                                                         transition={{ delay: i * 0.03 }}
                                                                         whileHover={{ scale: 1.03, y: -2 }}
                                                                         whileTap={{ scale: 0.97 }}
-                                                                        className="p-3 rounded-xl border-2 bg-white border-gray-200 hover:border-gray-400 transition-all shadow-sm hover:shadow-md text-left cursor-pointer group"
+                                                                        className={`p-3 rounded-xl border-2 bg-white transition-all shadow-sm hover:shadow-md text-left cursor-pointer group ${
+                                                                            boxInfo.isFullyCompleted
+                                                                                ? "border-green-400 bg-green-50/50 hover:border-green-500"
+                                                                                : "border-gray-200 hover:border-gray-400"
+                                                                        }`}
                                                                     >
                                                                         <div className="flex items-center gap-2">
                                                                             <div
-                                                                                className={`w-8 h-8 rounded-lg ${config.bgGlow} flex items-center justify-center`}
+                                                                                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                                                                    boxInfo.isFullyCompleted
+                                                                                        ? "bg-green-100"
+                                                                                        : config.bgGlow
+                                                                                }`}
                                                                             >
-                                                                                <Package size={14} className="text-gray-600" />
+                                                                                {boxInfo.isFullyCompleted ? (
+                                                                                    <CheckCircle size={16} className="text-green-600" />
+                                                                                ) : (
+                                                                                    <Package size={14} className="text-gray-600" />
+                                                                                )}
                                                                             </div>
-                                                                            <div>
-                                                                                <p className="font-semibold text-sm text-gray-800">
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className={`font-semibold text-sm ${
+                                                                                    boxInfo.isFullyCompleted ? "text-green-700" : "text-gray-800"
+                                                                                }`}>
                                                                                     Box {boxNum}
                                                                                 </p>
                                                                                 <p className="text-gray-500 text-xs">
                                                                                     {wordsInBox} words
                                                                                 </p>
                                                                             </div>
+                                                                            {/* Game mode dots */}
+                                                                            {boxInfo.completedCount > 0 && !boxInfo.isFullyCompleted && (
+                                                                                <div className="flex gap-1 mr-1">
+                                                                                    {GAME_MODES.map((mode) => (
+                                                                                        <div
+                                                                                            key={mode}
+                                                                                            className={`w-2 h-2 rounded-full ${
+                                                                                                boxInfo.completedModes.includes(mode)
+                                                                                                    ? "bg-green-500"
+                                                                                                    : "bg-gray-300"
+                                                                                            }`}
+                                                                                            title={mode}
+                                                                                        />
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
-                                                                        <ChevronRight
-                                                                            size={14}
-                                                                            className="text-gray-300 group-hover:text-gray-500 transition-colors"
-                                                                            style={{
-                                                                                position: "relative",
-                                                                                float: "right",
-                                                                                marginTop: "-20px",
-                                                                            }}
-                                                                        />
+                                                                        {!boxInfo.isFullyCompleted && (
+                                                                            <ChevronRight
+                                                                                size={14}
+                                                                                className="text-gray-300 group-hover:text-gray-500 transition-colors"
+                                                                                style={{
+                                                                                    position: "relative",
+                                                                                    float: "right",
+                                                                                    marginTop: "-20px",
+                                                                                }}
+                                                                            />
+                                                                        )}
                                                                     </motion.div>
                                                                 </Link>
                                                             );

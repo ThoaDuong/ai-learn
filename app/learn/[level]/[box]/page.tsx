@@ -40,6 +40,7 @@ export default function BoxDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeGame, setActiveGame] = useState<"flash-choice" | "speed-run" | "master-writing" | null>(null);
     const [levelStats, setLevelStats] = useState<LevelStat[]>([]);
+    const [completedModes, setCompletedModes] = useState<string[]>([]);
 
     const config = levelConfig[level] || levelConfig.B1;
 
@@ -54,6 +55,23 @@ export default function BoxDetailPage() {
         };
         fetchStats();
     }, []);
+
+    // Fetch progress for this box
+    const fetchProgress = useCallback(async () => {
+        if (isReview) return;
+        try {
+            const res = await fetch("/api/learn/progress");
+            const data = await res.json();
+            const boxProgress = (data.completed || []).filter(
+                (p: { level: string; box: number }) => p.level === level && p.box === boxNum
+            );
+            setCompletedModes(boxProgress.map((p: { gameMode: string }) => p.gameMode));
+        } catch { }
+    }, [level, boxNum, isReview]);
+
+    useEffect(() => {
+        fetchProgress();
+    }, [fetchProgress]);
 
     // Fetch vocabulary for this box
     useEffect(() => {
@@ -95,6 +113,8 @@ export default function BoxDetailPage() {
 
     const handleGameComplete = () => {
         setActiveGame(null);
+        // Refresh progress to update GameModePicker badges
+        fetchProgress();
     };
 
     // Next box navigation
@@ -275,6 +295,7 @@ export default function BoxDetailPage() {
                             <GameModePicker
                                 onSelectGame={handleSelectGame}
                                 disabledModes={disabledModes}
+                                completedModes={completedModes}
                             />
                         </motion.div>
                     )}
