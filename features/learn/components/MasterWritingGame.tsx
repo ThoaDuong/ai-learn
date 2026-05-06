@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, createRef, RefObject } from "react";
 import { motion } from "framer-motion";
 import { Trophy, RotateCcw, Lightbulb, X, Heart, XCircle, Volume2, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -22,7 +22,7 @@ const MAX_LIVES = 5;
 
 export default function MasterWritingGame({ vocabularies, onComplete, levelInfo, onNext }: MasterWritingGameProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [userInput, setUserInput] = useState("");
+    const [charInputs, setCharInputs] = useState<string[]>([]);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
@@ -35,7 +35,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
     const [isGameOver, setIsGameOver] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
     const [gameKey, setGameKey] = useState(0);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRefs = useRef<RefObject<HTMLInputElement>[]>([]);
 
     // Streak & Timer logic
     const [hasShownStreakDialog, setHasShownStreakDialog] = useState(false);
@@ -76,11 +76,20 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
 
     const currentVocab = shuffledVocabularies[currentIndex];
 
+    // Initialize charInputs and refs whenever the word changes
     useEffect(() => {
-        if (inputRef.current && !isFlipped && !isGameOver) {
-            inputRef.current.focus();
+        if (!currentVocab) return;
+        const len = currentVocab.word.length;
+        setCharInputs(Array(len).fill(""));
+        inputRefs.current = Array(len).fill(null).map(() => createRef<HTMLInputElement>());
+    }, [currentIndex, gameKey]);
+
+    // Focus first empty cell when word changes
+    useEffect(() => {
+        if (!isFlipped && !isGameOver && inputRefs.current.length > 0) {
+            setTimeout(() => inputRefs.current[0]?.current?.focus(), 50);
         }
-    }, [currentIndex, isFlipped, isGameOver]);
+    }, [currentIndex, isFlipped, isGameOver, gameKey]);
 
     // Listen for Enter key when card is flipped to continue
     useEffect(() => {
@@ -135,8 +144,11 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
         }
     };
 
+    const userInput = charInputs.join("");
+    const allFilled = currentVocab ? charInputs.every((c, i) => currentVocab.word[i] === " " || c !== "") : false;
+
     const checkAnswer = useCallback(() => {
-        const trimmedInput = userInput.trim().toLowerCase();
+        const trimmedInput = charInputs.join("").trim().toLowerCase();
         const correctAnswer = currentVocab.word.toLowerCase();
 
         if (trimmedInput === correctAnswer) {
@@ -145,60 +157,110 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
             const newCorrectCount = correctCount + 1;
             setCorrectCount(prev => prev + 1);
             correctCountRef.current = newCorrectCount;
-
-            // Speak the word when correct
             speakWord(currentVocab.word);
-
-            // Flip to show answer
             setIsFlipped(true);
-
-            // Check streak at 5 correct answers
             if (newCorrectCount === 5 && !hasShownStreakDialog) {
                 checkStreak();
             }
         } else {
             playWrong();
-
-            // Shake animation
             setIsShaking(true);
-            setTimeout(() => setIsShaking(false), 500);
+            setTimeout(() => {
+                setIsShaking(false);
+                // Clear all cells and focus first on wrong answer
+                setCharInputs(Array(currentVocab.word.length).fill(""));
+                setTimeout(() => inputRefs.current[0]?.current?.focus(), 20);
+            }, 500);
 
             setWrongCount(prev => {
                 wrongCountRef.current = prev + 1;
                 return prev + 1;
             });
 
-            // Lose a life immediately
             const newLives = lives - 1;
             setLives(newLives);
-
-            // Stay on same question, don't show answer, keep input
             setIsCorrect(null);
             setIsFlipped(false);
 
             if (newLives <= 0) {
-                // Game over
                 setIsCorrect(false);
                 setTimeout(() => {
                     playGameOverSad();
                     setIsGameOver(true);
                 }, 500);
             }
-            // Otherwise stay on same question - user can retry
         }
-    }, [userInput, currentVocab, correctCount, hasShownStreakDialog, lives, speakWord, playCorrect, playWrong, playGameOverSad]);
+    }, [charInputs, currentVocab, correctCount, hasShownStreakDialog, lives, speakWord, playCorrect, playWrong, playGameOverSad]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (userInput.trim()) {
+        if (allFilled) {
             checkAnswer();
         }
+    };
+
+    const handleCellChange = (index: number, value: string) => {
+        if (!currentVocab) return;
+        // Skip space positions
+        if (currentVocab.word[index] === " ") return;
+
+        const char = value.slice(-1); // only last typed char
+        const next = [...charInputs];
+        next[index] = char;
+        setCharInputs(next);
+
+        if (char && index < currentVocab.word.length - 1) {
+            // Advance to next non-space cell
+            let nextIdx = index + 1;
+            while (nextIdx < currentVocab.word.length && currentVocab.word[nextIdx] === " ") nextIdx++;
+            inputRefs.current[nextIdx]?.current?.focus();
+        }
+    };
+
+    const handleCellKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!currentVocab) return;
+        if (e.key === "Backspace") {
+            if (charInputs[index] !== "") {
+                const next = [...charInputs];
+                next[index] = "";
+                setCharInputs(next);
+            } else {
+                // Move focus back
+                let prevIdx = index - 1;
+                while (prevIdx >= 0 && currentVocab.word[prevIdx] === " ") prevIdx--;
+                if (prevIdx >= 0) {
+                    inputRefs.current[prevIdx]?.current?.focus();
+                    const next = [...charInputs];
+                    next[prevIdx] = "";
+                    setCharInputs(next);
+                }
+            }
+        } else if (e.key === "Enter") {
+            if (allFilled) checkAnswer();
+        }
+    };
+
+    const handleCellPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        if (!currentVocab) return;
+        const pasted = e.clipboardData.getData("text").trim();
+        if (pasted.length === 0) return;
+        const next = [...charInputs];
+        let pi = 0;
+        for (let i = 0; i < currentVocab.word.length && pi < pasted.length; i++) {
+            if (currentVocab.word[i] === " ") continue;
+            next[i] = pasted[pi++];
+        }
+        setCharInputs(next);
+        // Focus last filled cell
+        const lastFilled = next.reduce((acc, c, i) => (c !== "" ? i : acc), 0);
+        inputRefs.current[lastFilled]?.current?.focus();
     };
 
     const handleContinue = () => {
         if (currentIndex < shuffledVocabularies.length - 1) {
             setCurrentIndex(prev => prev + 1);
-            setUserInput("");
+            setCharInputs([]);
             setIsCorrect(null);
             setIsFlipped(false);
         } else {
@@ -210,7 +272,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
 
     const handleRestart = () => {
         setCurrentIndex(0);
-        setUserInput("");
+        setCharInputs([]);
         setIsCorrect(null);
         setIsFlipped(false);
         setCorrectCount(0);
@@ -559,35 +621,64 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 </motion.div>
             </div>
 
-            {/* Input Form - Only show when not flipped */}
-            {!isFlipped && (
+            {/* Character Dash Input - Only show when not flipped */}
+            {!isFlipped && currentVocab && (
                 <form onSubmit={handleSubmit}>
                     <motion.div
-                        animate={isShaking ? { x: [-10, 10, -10, 10, 0] } : {}}
-                        transition={{ duration: 0.4 }}
+                        animate={isShaking ? { x: [-12, 12, -12, 12, -8, 8, 0] } : {}}
+                        transition={{ duration: 0.45 }}
+                        className="flex flex-wrap justify-center gap-x-2 gap-y-3 mb-6"
                     >
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={userInput}
-                            onChange={(e) => setUserInput(e.target.value)}
-                            placeholder="Type the English word..."
-                            className={`w-full px-6 py-4 rounded-2xl border-2 text-lg font-medium outline-none transition-all ${isShaking
-                                ? 'border-red-400 bg-red-50'
-                                : 'border-gray-200 focus:border-purple-400 bg-white'
-                                }`}
-                            autoComplete="off"
-                            autoCapitalize="off"
-                            spellCheck={false}
-                        />
+                        {currentVocab.word.split("").map((char, i) => {
+                            if (char === " ") {
+                                return <div key={i} className="w-4" />;
+                            }
+                            const isFocused = document.activeElement === inputRefs.current[i]?.current;
+                            const filled = charInputs[i] !== "";
+                            return (
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: i * 0.03 }}
+                                    className={`relative w-10 h-12 flex items-end justify-center pb-1 border-b-2 transition-colors ${
+                                        isShaking
+                                            ? "border-red-400"
+                                            : filled
+                                            ? "border-purple-500"
+                                            : "border-gray-300"
+                                    }`}
+                                >
+                                    <input
+                                        ref={inputRefs.current[i]}
+                                        type="text"
+                                        maxLength={2}
+                                        value={charInputs[i] || ""}
+                                        onChange={e => handleCellChange(i, e.target.value)}
+                                        onKeyDown={e => handleCellKeyDown(i, e)}
+                                        onPaste={handleCellPaste}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+                                        autoComplete="off"
+                                        autoCapitalize="off"
+                                        spellCheck={false}
+                                        aria-label={`Character ${i + 1}`}
+                                    />
+                                    <span className={`text-xl font-bold select-none ${
+                                        isShaking ? "text-red-500" : filled ? "text-gray-800" : "text-transparent"
+                                    }`}>
+                                        {charInputs[i] || "_"}
+                                    </span>
+                                </motion.div>
+                            );
+                        })}
                     </motion.div>
 
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         type="submit"
-                        disabled={!userInput.trim()}
-                        className="w-full mt-4 py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-lg shadow-lg hover:shadow-purple-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!allFilled}
+                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-lg shadow-lg hover:shadow-purple-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Check
                     </motion.button>

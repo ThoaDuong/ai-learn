@@ -350,7 +350,7 @@ export default function VocabularyDetail({ vocabularies, title = "Learn This Voc
 
                                                                     {/* Word & Phonetic — centered */}
                                                                     <div className="flex-1 flex flex-col items-center justify-center px-5">
-                                                                        <h4 className="text-3xl font-bold text-gray-900 capitalize mb-2">
+                                                                        <h4 className="text-3xl font-bold text-gray-900 mb-2">
                                                                             {vocab.word}
                                                                         </h4>
                                                                         {vocab.phonetic && (
