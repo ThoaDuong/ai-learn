@@ -35,7 +35,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
     const [isGameOver, setIsGameOver] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
     const [gameKey, setGameKey] = useState(0);
-    const inputRefs = useRef<RefObject<HTMLInputElement>[]>([]);
+    const inputRefs = useRef<RefObject<HTMLInputElement | null>[]>([]);
 
     // Streak & Timer logic
     const [hasShownStreakDialog, setHasShownStreakDialog] = useState(false);
