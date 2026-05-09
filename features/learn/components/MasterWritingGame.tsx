@@ -148,6 +148,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
     const allFilled = currentVocab ? charInputs.every((c, i) => currentVocab.word[i] === " " || c !== "") : false;
 
     const checkAnswer = useCallback(() => {
+        if (isShaking || isFlipped || isGameOver) return;
         const trimmedInput = charInputs.join("").trim().toLowerCase();
         const correctAnswer = currentVocab.word.toLowerCase();
 
@@ -190,7 +191,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 }, 500);
             }
         }
-    }, [charInputs, currentVocab, correctCount, hasShownStreakDialog, lives, speakWord, playCorrect, playWrong, playGameOverSad]);
+    }, [charInputs, currentVocab, correctCount, hasShownStreakDialog, lives, speakWord, playCorrect, playWrong, playGameOverSad, isShaking, isFlipped, isGameOver]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -236,6 +237,7 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 }
             }
         } else if (e.key === "Enter") {
+            e.preventDefault();
             if (allFilled) checkAnswer();
         }
     };
@@ -327,7 +329,6 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                 <span>Word {currentIndex + 1}/{shuffledVocabularies.length}</span>
                 <div className="flex items-center gap-3">
                     {heartsDisplay}
-                    <span>Correct: {correctCount}</span>
                     <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
@@ -641,13 +642,12 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.03 }}
-                                    className={`relative w-10 h-12 flex items-end justify-center pb-1 border-b-2 transition-colors ${
-                                        isShaking
+                                    className={`relative w-10 h-12 flex items-end justify-center pb-1 border-b-2 transition-colors ${isShaking
                                             ? "border-red-400"
                                             : filled
-                                            ? "border-purple-500"
-                                            : "border-gray-300"
-                                    }`}
+                                                ? "border-purple-500"
+                                                : "border-gray-300"
+                                        }`}
                                 >
                                     <input
                                         ref={inputRefs.current[i]}
@@ -663,9 +663,8 @@ export default function MasterWritingGame({ vocabularies, onComplete, levelInfo,
                                         spellCheck={false}
                                         aria-label={`Character ${i + 1}`}
                                     />
-                                    <span className={`text-xl font-bold select-none ${
-                                        isShaking ? "text-red-500" : filled ? "text-gray-800" : "text-transparent"
-                                    }`}>
+                                    <span className={`text-xl font-bold select-none ${isShaking ? "text-red-500" : filled ? "text-gray-800" : "text-transparent"
+                                        }`}>
                                         {charInputs[i] || "_"}
                                     </span>
                                 </motion.div>
