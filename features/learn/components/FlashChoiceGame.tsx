@@ -297,6 +297,18 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
         </div>
     );
 
+    // Listen for Enter key on game over screen to restart
+    useEffect(() => {
+        if (!isGameOver) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                handleRestart();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isGameOver]);
+
     // Game Over screen
     if (isGameOver) {
         return (
@@ -351,16 +363,8 @@ export default function FlashChoiceGame({ vocabularies, onComplete, levelInfo, o
                         >
                             <RotateCcw size={18} />
                             Play Again
+                            <span className="text-xs opacity-75">(Enter)</span>
                         </motion.button>
-                        <Link href="/learn">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium"
-                            >
-                                Back
-                            </motion.button>
-                        </Link>
                     </div>
                 </motion.div>
             </>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer, ChevronRight, X } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, RotateCcw, Flame, Timer, ChevronRight, X, Heart } from "lucide-react";
 import Link from "next/link";
 import { Vocabulary } from "@/types";
 import { useGameSounds } from "../hooks/useGameSounds";
@@ -26,12 +26,14 @@ interface QuizQuestion {
 
 const TIMER_DURATION = 5000; // 5 seconds
 const WIN_THRESHOLD = 20; // Score threshold for win celebration
+const MAX_LIVES = 3;
 
 export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNext }: SpeedRunGameProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [score, setScore] = useState(0);
+    const [lives, setLives] = useState(MAX_LIVES);
     const [wrongCount, setWrongCount] = useState(0);
     const scoreRef = useRef(0);
     const wrongCountRef = useRef(0);
@@ -50,7 +52,7 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
     const [newStreakValue, setNewStreakValue] = useState(0);
     const { start, getMinutes } = useActivityTimer();
 
-    const { playCorrect, playGameOverSad, playGameOverHappy } = useGameSounds();
+    const { playCorrect, playWrong, playGameOverSad, playGameOverHappy } = useGameSounds();
     const { speak: speakWord } = useSpeechSynthesis();
 
     // Start timer on mount
@@ -232,22 +234,44 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
                 }
             }, 500);
         } else {
-            // Wrong answer - game over
+            // Wrong answer - lose a life
+            playWrong();
             setWrongCount(prev => {
                 wrongCountRef.current = prev + 1;
                 return prev + 1;
             });
-            setTimeout(() => {
-                setIsGameOver(true);
-            }, 1000);
+            const newLives = lives - 1;
+            setLives(newLives);
+
+            if (newLives <= 0) {
+                // No lives left - game over
+                setTimeout(() => {
+                    setIsGameOver(true);
+                }, 1000);
+            } else {
+                // Still have lives - move to next question
+                setTimeout(() => {
+                    if (currentIndex < questions.length - 1) {
+                        setCurrentIndex(prev => prev + 1);
+                        setSelectedAnswer(null);
+                        setIsCorrect(null);
+                        setIsAnswering(false);
+                    } else {
+                        // Completed all questions
+                        saveProgress();
+                        setIsGameOver(true);
+                    }
+                }, 1000);
+            }
         }
-    }, [selectedAnswer, currentQuestion, currentIndex, questions.length, isGameOver, playCorrect]);
+    }, [selectedAnswer, currentQuestion, currentIndex, questions.length, isGameOver, playCorrect, lives]);
 
     const handleRestart = () => {
         setCurrentIndex(0);
         setSelectedAnswer(null);
         setIsCorrect(null);
         setScore(0);
+        setLives(MAX_LIVES);
         setWrongCount(0);
         scoreRef.current = 0;
         wrongCountRef.current = 0;
@@ -266,6 +290,18 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
     const timerColor = timerPercentage > 50 ? 'from-green-400 to-emerald-500' :
         timerPercentage > 25 ? 'from-yellow-400 to-amber-500' :
             'from-red-400 to-rose-500';
+
+    // Listen for Enter key on game over screen to restart
+    useEffect(() => {
+        if (!isGameOver) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                handleRestart();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isGameOver]);
 
     if (isGameOver) {
         const isAllCorrect = currentIndex === questions.length - 1 && isCorrect;
@@ -388,6 +424,7 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
                         >
                             <RotateCcw size={18} />
                             Play Again
+                            <span className="text-xs opacity-75">(Enter)</span>
                         </motion.button>
                         {isAllCorrect && onNext && (
                             <motion.button
@@ -408,16 +445,37 @@ export default function SpeedRunGame({ vocabularies, onComplete, levelInfo, onNe
 
     return (
         <div className="w-full max-w-lg mx-auto">
-            {/* Score & Timer */}
+            {/* Score & Timer & Lives */}
             <div className="mb-6">
                 <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
                         <Flame className="text-orange-500" />
                         <span className="text-2xl font-bold text-gray-800">{score}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-500">
-                        <Timer size={18} />
-                        <span>{(timeLeft / 1000).toFixed(1)}s</span>
+                    <div className="flex items-center gap-3">
+                        {/* Hearts */}
+                        <div className="flex items-center gap-1">
+                            {[...Array(MAX_LIVES)].map((_, index) => {
+                                const isVisible = index >= (MAX_LIVES - lives);
+                                return (
+                                    <motion.div
+                                        key={index}
+                                        initial={{ scale: 1, opacity: 1 }}
+                                        animate={isVisible ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                                        transition={{ type: "spring", duration: 0.3 }}
+                                    >
+                                        <Heart
+                                            size={18}
+                                            className={isVisible ? "text-red-500 fill-red-500" : "text-gray-300"}
+                                        />
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <Timer size={18} />
+                            <span>{(timeLeft / 1000).toFixed(1)}s</span>
+                        </div>
                     </div>
                 </div>
 
