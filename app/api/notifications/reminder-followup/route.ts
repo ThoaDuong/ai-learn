@@ -5,8 +5,8 @@ import { getTodayDateString } from "@/common/utils/streakFreezeUtils";
 import { isSameDay } from "@/common/utils/streakUtils";
 
 /**
- * Daily reminder notification endpoint
- * Called by Vercel Cron Job at 8 PM (Vietnam time) to:
+ * Daily reminder follow-up notification endpoint
+ * Called by Vercel Cron Job at 10:30 PM (Vietnam time) to:
  * 1. Find users who haven't earned streak today
  * 2. Send reminder email with appropriate warning
  * 
@@ -93,11 +93,10 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error("Reminder notification error:", error);
+        console.error("Reminder follow-up notification error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }
         );
     }
 }
-

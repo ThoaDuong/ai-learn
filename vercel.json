@@ -6,11 +6,11 @@
         },
         {
             "path": "/api/notifications/reminder",
-            "schedule": "0 15 * * *"
+            "schedule": "0 13 * * *"
         },
         {
-            "path": "/api/notifications/morning-reminder",
-            "schedule": "0 1 * * *"
+            "path": "/api/notifications/reminder-followup",
+            "schedule": "30 15 * * *"
         }
     ]
 }
